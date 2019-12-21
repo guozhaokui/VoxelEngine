@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"target": "es6",
+		"baseUrl": "libs/layaAir",
+		"outDir": "bin/js",
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "preserveConstEnums": false
+	},
+	"exclude": [
+		"node_modules"
+	]
+}
