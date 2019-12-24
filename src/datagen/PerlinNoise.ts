@@ -34,10 +34,20 @@ var permutation = [ 151,160,137,91,90,15,
 
 	function lerp( t:number, a:number, b:number) { return a + t * (b - a); }
 
+	/**
+	 * 从12个预定义梯度中随机选取一个，并与xyz进行点积。
+	 * @param hash 
+	 * @param x 
+	 * @param y 
+	 * @param z 
+	 */
 	function grad(hash:number, x:number, y:number, z:number) {
 	   var h = hash & 15;                       // CONVERT LO 4 BITS OF HASH CODE
+	   // uv根据h的bit来选择xyz
 	   var  u = h<8 ? x : y,                 	// INTO 12 GRADIENT DIRECTIONS.
 			v = h<4 ? y : h==12||h==14 ? x : z;
+
+		// h的1,2bit来决定u和v的符号
 	   return ((h&1) == 0 ? u : -u) + ((h&2) == 0 ? v : -v);
 	} 
 
@@ -77,4 +87,29 @@ export function noise(x:number, y:number, z:number){
 					)
 				)
 			);
+}
+
+
+// Source: http://riven8192.blogspot.com/2010/08/calculate-perlinnoise-twice-as-fast.html
+// 等效于上面的grad
+function grad1(hash:int, x:number,  y:number, z:number){
+    switch(hash & 0xF){
+        case 0x0: return  x + y;
+        case 0x1: return -x + y;
+        case 0x2: return  x - y;
+        case 0x3: return -x - y;
+        case 0x4: return  x + z;
+        case 0x5: return -x + z;
+        case 0x6: return  x - z;
+        case 0x7: return -x - z;
+        case 0x8: return  y + z;
+        case 0x9: return -y + z;
+        case 0xA: return  y - z;
+        case 0xB: return -y - z;
+        case 0xC: return  y + x;
+        case 0xD: return -y + z;
+        case 0xE: return  y - x;
+        case 0xF: return -y - z;
+        default: return 0; // never happens
+    }
 }
