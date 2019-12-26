@@ -77,19 +77,23 @@ export class SurfaceNets {
 
 		var vertices = []
 			, faces = []
-			, n = 0
-			, x = new Int32Array(3)
-			, R = new Int32Array([1, (xl + 1), (xl + 1) * (yl + 1)])
-			, grid = new Float32Array(8)
-			, buf_no = 1;
+			, n = 0;
+
+		var x = new Int32Array(3);
+
+		/** 某个方向的相邻点的距离 */
+		var adjDist = new Int32Array([1, (xl + 1), (xl + 1) * (yl + 1)]);
+
+		var grid = new Float32Array(8);
+		var buf_no = 1;
 
 		//Resize buffer if necessary 
-		if (R[2] * 2 > buffer.length) {
-			buffer = new Int32Array(R[2] * 2);
+		if (adjDist[2] * 2 > buffer.length) {
+			buffer = new Int32Array(adjDist[2] * 2);
 		}
 
 		//March over the voxel grid
-		for (x[2] = 0; x[2] < zl - 1;  ++x[2], n += xl, buf_no ^= 1, R[2] = -R[2]) {
+		for (x[2] = 0; x[2] < zl - 1; ++x[2], n += xl, buf_no ^= 1, adjDist[2] = -adjDist[2]) {
 
 			//m is the pointer into the buffer we are going to use.  
 			//This is slightly obtuse because javascript does not have good support for packed data structures, so we must use typed arrays :(
@@ -102,7 +106,7 @@ export class SurfaceNets {
 					//Read in 8 field values around this vertex and store them in an array
 					//Also calculate 8-bit mask, like in marching cubes, so we can speed up sign checks later
 					var mask = 0, g = 0, idx = n;
-					for (var k = 0; k < 2; ++k, idx += xl * (yl - 2))	
+					for (var k = 0; k < 2; ++k, idx += xl * (yl - 2))
 						for (var j = 0; j < 2; ++j, idx += xl - 2)
 							for (var i = 0; i < 2; ++i, ++g, ++idx) {
 								var p = data[idx];
@@ -182,8 +186,8 @@ export class SurfaceNets {
 						}
 
 						//Otherwise, look up adjacent edges in buffer
-						var du = R[iu]
-							, dv = R[iv];
+						var du = adjDist[iu]
+							, dv = adjDist[iv];
 
 						//Remember to flip orientation depending on the sign of the corner.
 						if (mask & 1) {

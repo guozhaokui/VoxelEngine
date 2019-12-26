@@ -166,28 +166,50 @@ export function creatQuadMesh(vertexPos:number[][], quads:number[][]){
 	let vertex: number[] = [];
 	let index: number[] = [];
 	let vn = 0;
+	let totalvn=0;
 	var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,UV");
-	let v1 = new Vector3();
-	let v2 = new Vector3();
+	let d1 = new Vector3();
+	let d2 = new Vector3();
+	let norm = new Vector3();
+	let ret:Mesh[]=[];
 	quads.forEach( (quad:number[])=>{
-		let i1=quad[0];
-		let i2=quad[1];
-		let i3=quad[2];
-		let i4=quad[3];
+		let v1 = vertexPos[quad[0]];
+		let v2 = vertexPos[quad[1]];
+		let v3 = vertexPos[quad[2]];
+		let v4 = vertexPos[quad[3]];
 
-		let vert=vertexPos[i1];
-		vertex.push(vert[0], vert[1], vert[2], 1,1,1, 0, 0);
-		vert=vertexPos[i2];
-		vertex.push(vert[0], vert[1], vert[2], 1,1,1, 0, 0);
-		vert=vertexPos[i3];
-		vertex.push(vert[0], vert[1], vert[2], 1,1,1, 0, 0);
-		vert=vertexPos[i4];
-		vertex.push(vert[0], vert[1], vert[2], 1,1,1, 0, 0);
-		index.push(vn + 0, vn + 1, vn + 3, vn + 1, vn + 2, vn + 3);
+		// 临时计算一个错误的法线
+		d1.x =v2[0]-v1[0];
+		d1.y =v2[1]-v1[1];
+		d1.z=v2[2]-v1[2];
+		d2.x=v3[0]-v1[0];
+		d2.y=v3[1]-v1[1];
+		d2.z=v3[2]-v1[2];
+		Vector3.cross(d2,d1,norm);
+		vertex.push(v1[0], v1[1], v1[2], norm.x,norm.y,norm.z, 0, 0);
+		vertex.push(v2[0], v2[1], v2[2], norm.x,norm.y,norm.z, 0, 0);
+		vertex.push(v3[0], v3[1], v3[2], norm.x,norm.y,norm.z, 0, 0);
+		vertex.push(v4[0], v4[1], v4[2], norm.x,norm.y,norm.z, 0, 0);
+
+		index.push(vn + 0, vn + 2, vn + 1, vn , vn + 3, vn + 2);
 		vn+=4;
+		totalvn+=4;
+		if(vn>60*1024){
+			vn=0;
+			let vert = new Float32Array(vertex);
+			let idx = new Uint16Array(index);
+			ret.push( (PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);	
+			vertex.length=0;
+			index.length=0;
+		}
 	});
 
-	let vert = new Float32Array(vertex);
-	let idx = new Uint16Array(index);
-	return (PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh;	
+	if(index.length>0){
+		let vert = new Float32Array(vertex);
+		let idx = new Uint16Array(index);
+		ret.push( (PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);	
+	}
+
+	console.log('vertexnum=',totalvn);
+	return ret;
 }
