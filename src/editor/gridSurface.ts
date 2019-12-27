@@ -29,9 +29,9 @@ export class GridSurface {
 		let maxx = xnum * gridw;
 		let maxy = ynum * gridw;
 
-		let xcolor = new Color(1, 0, 0, 1);
-		let ycolor = new Color(0, 1, 0, 1);
-		let zcolor = new Color(0, 0, 1, 1);
+		let xcolor = new Color(1, 0, 0, 0.8);
+		let ycolor = new Color(0, 1, 0, 0.8);
+		let zcolor = new Color(0, 0, 1, 0.8);
 		let color = new Color(0.5, 0.5, 0.5, 0.5);
 
 		let grid = this.grid;

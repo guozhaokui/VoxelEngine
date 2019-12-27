@@ -30,7 +30,7 @@
  * Based on: S.F. Gibson, "Constrained Elastic Surface Nets". (1998) MERL Tech Report.
  */
 
-
+ 
 //Internal buffer, this may get resized at run time
 var buffer = new Int32Array(4096);
 
@@ -198,10 +198,8 @@ export class SurfaceNets {
 					}
 				}
 		}
-
 		//All done!  Return the result
 		return { vertices: vertices, faces: faces };
-
 	}
 }
 
