@@ -26,7 +26,7 @@ var camera = (<Camera>scene.addChild(new Camera(0, 1, 10000)));
 //camera.transform.translate(new Vector3(0, 0, 6));
 //camera.transform.rotate(new Vector3(-15, 0, 0), true, false);
 let camctrl = camera.addComponent(MouseCtrl1) as MouseCtrl1;
-camera.clearColor=new Vector4(0.01,0,0,0);
+camera.clearColor=new Vector4(0.2,0.2,0.2,0);
 camctrl.initCamera(new Vector3(0, 0, 0), new Vector3(0, 0, 0), 132);
 //camera.addComponent(CameraMoveScript);
 //camera.clearColor = null;
@@ -50,7 +50,7 @@ function getdata(x:number,y:number,z:number):number{
 //scene.addChild(mesh);
 //mesh.transform.localPosition = new Vector3(-5,-5,-5)
 
-let sidelen=24;
+let sidelen=124;
 //let data = SphereData(-2,2,sidelen);
 let data = SphereData(-2,2,sidelen);
 
