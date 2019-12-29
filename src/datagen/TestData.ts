@@ -30,35 +30,40 @@ export function genVoxData(min: number, max: number, sidelen: i32, f: (x: number
 }
 
 export function SphereData(min: number, max: number, sidelen: int) {
-	return genVoxData(-2, 2, sidelen,
+	return { data: genVoxData(-2, 2, sidelen,
 		(x, y, z) => {
 			return x * x + y * y + z * z - 1.0;
 		}
-	);
+	),
+	dims:[sidelen,sidelen,sidelen]
+	};
 }
 
 export function Goursats_Surface(min:number,max:number, sidelen:int){
-	return genVoxData(min,max,sidelen,
+	return {data:genVoxData(min,max,sidelen,
 		(x,y,z)=>{
 			return Math.pow(x, 4) + Math.pow(y, 4) + Math.pow(z, 4) - 1.5 * (x * x + y * y + z * z) + 1;
 		}
-	);
+	),
+	dims:[sidelen,sidelen,sidelen]};
 } 
 
 export function Sine_Waves(min:number,max:number,sidelen:int){
-	return genVoxData(min,max,sidelen,
+	return {data:genVoxData(min,max,sidelen,
 		(x,y,z)=>{
 			return Math.sin(x) + Math.sin(y) + Math.sin(z);
 		}
-	);
+	),
+	dims:[sidelen,sidelen,sidelen]};
 } 	
 
 export function Perlin_Noise(min:number,max:number,sidelen:int){
-	return genVoxData(min,max,sidelen,
+	return {data:genVoxData(min,max,sidelen,
 		(x,y,z)=>{
 			return noise(x, y, z) - 0.5;
 		}
-	);
+	),
+	dims:[sidelen,sidelen,sidelen]};
 } 	
 
 export function Terrain(min:number,max:number,sidelen:int){

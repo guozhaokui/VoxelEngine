@@ -55,7 +55,7 @@ let sidelen=124;
 let data = SphereData(-2,2,sidelen);
 
 let isos = new SurfaceNets();
-let mesh1 = isos.tomesh(data,[sidelen,sidelen,sidelen]);
+let mesh1 = isos.tomesh(data.data,data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
 
 let gridq =new Quaternion();

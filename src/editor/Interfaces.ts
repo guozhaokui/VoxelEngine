@@ -13,5 +13,5 @@ export interface IAction{
 }
 
 export interface IEditableObject{
-	
+	getDataDesc():Object;
 }
