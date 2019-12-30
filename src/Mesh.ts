@@ -185,7 +185,7 @@ export function polyToTriMesh(vertexPos:number[][], quads:number[][]){
 		d2.x=v3[0]-v1[0];
 		d2.y=v3[1]-v1[1];
 		d2.z=v3[2]-v1[2];
-		Vector3.cross(d2,d1,norm);
+		Vector3.cross(d1,d2,norm);
 		vertex.push(v1[0], v1[1], v1[2], norm.x,norm.y,norm.z, 0, 0);
 		vertex.push(v2[0], v2[1], v2[2], norm.x,norm.y,norm.z, 0, 0);
 		vertex.push(v3[0], v3[1], v3[2], norm.x,norm.y,norm.z, 0, 0);
