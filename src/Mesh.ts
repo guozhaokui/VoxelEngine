@@ -173,10 +173,12 @@ export function creatQuadMesh(vertexPos:number[][], quads:number[][]){
 	let norm = new Vector3();
 	let ret:Mesh[]=[];
 	quads.forEach( (quad:number[])=>{
+		let isQuad = quad.length==4;
+		let vnum=3;
+		isQuad && (vnum=4);
 		let v1 = vertexPos[quad[0]];
 		let v2 = vertexPos[quad[1]];
 		let v3 = vertexPos[quad[2]];
-		let v4 = vertexPos[quad[3]];
 
 		// 临时计算一个错误的法线
 		d1.x =v2[0]-v1[0];
@@ -189,11 +191,20 @@ export function creatQuadMesh(vertexPos:number[][], quads:number[][]){
 		vertex.push(v1[0], v1[1], v1[2], norm.x,norm.y,norm.z, 0, 0);
 		vertex.push(v2[0], v2[1], v2[2], norm.x,norm.y,norm.z, 0, 0);
 		vertex.push(v3[0], v3[1], v3[2], norm.x,norm.y,norm.z, 0, 0);
-		vertex.push(v4[0], v4[1], v4[2], norm.x,norm.y,norm.z, 0, 0);
+		if(isQuad){
+			let v4 = vertexPos[quad[3]];
+			vertex.push(v4[0], v4[1], v4[2], norm.x,norm.y,norm.z, 0, 0);
+		}
 
-		index.push(vn + 0, vn + 2, vn + 1, vn , vn + 3, vn + 2);
-		vn+=4;
-		totalvn+=4;
+		if(isQuad){
+			index.push(vn + 0, vn + 2, vn + 1, vn , vn + 3, vn + 2);
+		}else{
+			index.push(vn + 0, vn + 2, vn + 1);
+		}
+
+		vn+=vnum;
+		totalvn+=vnum;
+
 		if(vn>60*1024){
 			vn=0;
 			let vert = new Float32Array(vertex);

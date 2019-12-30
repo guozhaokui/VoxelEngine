@@ -14,6 +14,7 @@ import { genVoxData, SphereData, Sine_Waves, Terrain, Perlin_Noise } from "./dat
 import { SurfaceNets } from "./SurfaceNets";
 import { GridSurface } from "./editor/gridSurface";
 import { Quaternion } from "laya/d3/math/Quaternion";
+import { MarchingCubes } from "./MarchingCubes";
 
 //
 let scene: Scene3D;
@@ -50,12 +51,13 @@ function getdata(x:number,y:number,z:number):number{
 //scene.addChild(mesh);
 //mesh.transform.localPosition = new Vector3(-5,-5,-5)
 
-let sidelen=124;
+let sidelen=44;
 //let data = SphereData(-2,2,sidelen);
 let data = SphereData(-2,2,sidelen);
 
 let isos = new SurfaceNets();
-let mesh1 = isos.tomesh(data.data,data.dims);
+//let mesh1 = isos.tomesh(data.data,data.dims);
+let mesh1 = MarchingCubes(data.data,data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
 
 let gridq =new Quaternion();

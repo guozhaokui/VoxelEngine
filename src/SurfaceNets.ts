@@ -81,7 +81,7 @@ export class SurfaceNets {
 
 		var x = new Int32Array(3);
 
-		/** 某个方向的相邻点的距离 */
+		/** 某个方向的相邻点的数组距离 */
 		var adjDist = new Int32Array([1, (xl + 1), (xl + 1) * (yl + 1)]);
 
 		var grid = new Float32Array(8);
