@@ -3,7 +3,7 @@ import { Scene3D } from "laya/d3/core/scene/Scene3D";
 import { Laya } from "Laya";
 import { Laya3D } from "Laya3D";
 import { MeshSprite3D } from "laya/d3/core/MeshSprite3D";
-import { createVoxMesh, creatQuadMesh } from "./Mesh";
+import { createVoxMesh, polyToTriMesh } from "./Mesh";
 import { Vector3 } from "laya/d3/math/Vector3";
 import { BlinnPhongMaterial } from "laya/d3/core/material/BlinnPhongMaterial";
 import { Camera } from "laya/d3/core/Camera";
@@ -66,7 +66,7 @@ let grid = new GridSurface(10,null,null);
 //grid.showAxis=false;
 grid.addToScene(scene);
 
-let meshes = creatQuadMesh(mesh1.vertices, mesh1.faces);
+let meshes = polyToTriMesh(mesh1.vertices, mesh1.faces);
 meshes.forEach( mesh=>{
 	let cmesh = new MeshSprite3D(mesh);
 	scene.addChild(cmesh);
