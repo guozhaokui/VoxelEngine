@@ -30,6 +30,9 @@
  */
 
 export var MarchingCubes = (function () {
+	/**
+	 * 根据顶点是否为1确定的256种组合，每种组合会用到的边
+	 */
 	var edgeTable = new Uint32Array([
 		0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 		0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -64,7 +67,7 @@ export var MarchingCubes = (function () {
 		0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
 		0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0]);
 
-	/** 256种组合 */
+	/** 256种组合，每种组合的点在哪条边上。每个边上只有一个点，因此也可以用来对应多边形的索引 */
 	var triTable = [
 		[],
 		[0, 8, 3],
@@ -323,25 +326,49 @@ export var MarchingCubes = (function () {
 		[0, 3, 8],
 		[]];
 
+	/**
+	 * z向上
+	 * 
+	 * Z          Y
+	 * ^         /
+	 * |        /
+	 * | 7-----6
+	 * |/     /|
+	 * 4----5  |
+	 * |    |  |
+	 * |  3 |  2
+	 * |    | /
+	 * 0----1------------>X
+	 */
+
+	/**
+	 * 8个点，每个的xyz偏移
+	 */
 	var cubeVerts = [
-		[0, 0, 0]
-		, [1, 0, 0]
-		, [1, 1, 0]
-		, [0, 1, 0]
-		, [0, 0, 1]
-		, [1, 0, 1]
-		, [1, 1, 1]
-		, [0, 1, 1]];
+		[0, 0, 0]		// 0
+		, [1, 0, 0]		// 1
+		, [1, 1, 0]		// 2
+		, [0, 1, 0]		// 3
+		, [0, 0, 1]		// 4
+		, [1, 0, 1]		// 5
+		, [1, 1, 1]		// 6
+		, [0, 1, 1]];	// 7
 
 	/** 12条边的索引 */
 	var edgeIndex = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
 
+	/**
+	 * data是按照z向上排列的
+	 */
 	return function (data: Float32Array, dims: number[]) {
 		var vertices = []
 			, faces = []
-			, n = 0
-			, grid = new Float32Array(8)
-			, edges = new Int32Array(12);
+			, n = 0;
+
+		/** 8个顶点对应的实际值 */
+		var grid = new Float32Array(8)
+		/** 12条边对应的顶点索引 */
+		var edges = new Int32Array(12);
 
 		let cx = 0;
 		let cy = 0;
@@ -355,11 +382,12 @@ export var MarchingCubes = (function () {
 				for (cx = 0; cx < nx - 1; ++cx, ++n) {
 					//For each cell, compute cube mask
 					var cube_index = 0;
+					// 记录当前8个顶点的值。构造对应的mask，这个mask可以用来索引 edgeTable
 					for (var i = 0; i < 8; ++i) {
 						var cubeV = cubeVerts[i];
-						var s = data[n + cubeV[0] + nx * (cubeV[1] + ny * cubeV[2])];
+						var s = data[n + cubeV[0] + nx * (cubeV[1] + ny * cubeV[2])];	// n+ v[0] + nx*v[1] + nx*ny*v[2]
 						grid[i] = s;
-						cube_index |= (s > 0) ? 1 << i : 0;
+						cube_index |= (s > 0) ? 1 << i : 0;	// >0的设置标志，相当于实心在外面
 					}
 					//Compute vertices
 					var edge_mask = edgeTable[cube_index];
@@ -367,26 +395,28 @@ export var MarchingCubes = (function () {
 						continue;
 					}
 
+					// 12条边，用到了哪一条
 					for (var i = 0; i < 12; ++i) {
 						if ((edge_mask & (1 << i)) === 0) {
 							continue;
 						}
 						edges[i] = vertices.length;
-						var cvert = [0, 0, 0]
-							, e = edgeIndex[i]
-							, p0 = cubeVerts[e[0]]
-							, p1 = cubeVerts[e[1]]
-							, a = grid[e[0]]
-							, b = grid[e[1]]
-							, d = a - b
-							, t = 0;
+						var e = edgeIndex[i];
+						var p0 = cubeVerts[e[0]];
+						var p1 = cubeVerts[e[1]];
+						var a = grid[e[0]];
+						var b = grid[e[1]];
+						// 如果这条边是边界边，则a和b必然是反号的，现在求0点的位置，因此是 (0-a)/(b-a) = a/(a-b)
+						var d = a - b;
+						var  t = 0;
 						if (Math.abs(d) > 1e-6) {
 							t = a / d;
 						}
 
-						cvert[0] = (cx + p0[0]) + t * (p1[0] - p0[0]);
-						cvert[1] = (cy + p0[1]) + t * (p1[1] - p0[1]);
-						cvert[2] = (cz + p0[2]) + t * (p1[2] - p0[2]);
+						var cvert = [0, 0, 0];
+						cvert[0] = cx + p0[0] + t * (p1[0] - p0[0]);	// cx + p0.x + t*(p1-p0).x
+						cvert[1] = cy + p0[1] + t * (p1[1] - p0[1]);
+						cvert[2] = cz + p0[2] + t * (p1[2] - p0[2]);
 
 						vertices.push(cvert);
 					}
