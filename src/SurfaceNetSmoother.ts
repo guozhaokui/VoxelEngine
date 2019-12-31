@@ -31,7 +31,7 @@ class SurfaceNetNode{
 	nextX=-1;		// 下一个相连的节点id。-1表示没有。每次处理的时候会把自己加到对方，同时把对方加到自己。 用id是一个位置，比对象更容易维护
 	nextY=-1;
 	netxZ=-1;
-	linkeNodeNum=0; 	// 连接的节点数。上面只记录的下一个，连接的要把只想自己的也算上。每个最多有6个：两个角的顶角处
+	linkeNodeNum=0; 	// 连接的节点数。上面只记录的下一个，连接的要把指向自己的也算上。每个最多有6个：两个角的顶角处
 	//nextNodes:SurfaceNets[]=[];
 
 	resetTarget(){
@@ -192,21 +192,23 @@ export class SurfaceNetSmoother{
 			if(cn==undefined)
 				continue;
 			let id = cn.voxID;
-			let has=false;
 			
 			if(nets[id+1]){ 
-				has=true; 
 				cn.nextX = id+1;
+				cn.linkeNodeNum++;
+				nets[id+1].linkeNodeNum++;
 			}			
 			if(nets[id+dy]){	// 注意如果是边缘的话这个会出错
-				has=true;
 				cn.nextY=id+dy;
+				cn.linkeNodeNum++;
+				nets[id+dy].linkeNodeNum++;
 			}
 			if(nets[id+dz]){
-				has=true;
 				cn.netxZ=id+dz;
+				cn.linkeNodeNum++;
+				nets[id+dz].linkeNodeNum++;
 			}
-			if(has){
+			if(cn.linkeNodeNum>0){
 				netNodes[id]=cn;
 			}
 		}
