@@ -57,6 +57,37 @@ let data = SphereData(-2,2,sidelen);
 
 let isos = new SurfaceNets();
 //let mesh1 = isos.tomesh(data.data,data.dims);
+//test data
+data.data = new Float32Array(100*100*100);
+data.data.fill(1);
+data.dims=[100,100,100];
+/*
+for(let z=0; z<10; z++){
+	for(let y=0; y<10; y++){
+		for(let x=0; x<10; x++){
+			let dx = x-4; dx/=4;
+			let dy = y-4; dy/=4;
+			let dz = z-4; dz/=4;
+			let r = Math.sqrt(dx*dx+dy*dy+dz*dz)-1;
+			if(r>0)r=1;
+			if(r<0)r=-1;
+			data.data[x+y*10+z*100]=r;
+		}
+	}
+}
+*/
+for(let z=1; z<60; z++){
+	for(let y=1; y<60; y++){
+		for(let x=1; x<60; x++){
+			let dx = x-4; dx/=14;
+			let dy = y-4; dy/=14;
+			let dz = z-4; dz/=14;
+			data.data[x+y*100+z*10000]=-1;
+		}
+	}
+}
+//test data end
+
 let mesh1 = MarchingCubes(data.data,data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
 
@@ -73,12 +104,4 @@ meshes.forEach( mesh=>{
 	cmesh.transform.localPosition = new Vector3(-10,0,0)
 });
 
-function printLayerx(n:int){
-	for(let y=0; y<sidelen; y++){
-		let str='';
-		for(let x=0; x<sidelen; x++){
-
-		}
-	}
-}
 

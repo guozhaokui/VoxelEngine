@@ -1,5 +1,10 @@
 import { BoundBox } from "laya/d3/math/BoundBox";
 
+/**
+ * 取实心的地方为-1，空心的为1，则对于边界处的空格子，其中心的值为0，移动范围是 (-1,1)
+ * 经过调整后，中心点发生了偏移,在边上的交点根据中心点的xyz进行调整就行
+ */
+
 class SurfaceNetNode{
 	voxID:int=0;		// 最大允许1024**3。能反向得到xyz
 	/** 调整后的位置 */
@@ -11,7 +16,7 @@ class SurfaceNetNode{
 	tmpy=0;
 	tmpz=0;
 
-	nextX=-1;		// 下一个相连的节点id。-1表示没有。每次处理的时候会把自己加到对方，同时把对方加到自己。
+	nextX=-1;		// 下一个相连的节点id。-1表示没有。每次处理的时候会把自己加到对方，同时把对方加到自己。 用id是一个位置，比对象更容易维护
 	nextY=-1;
 	netxZ=-1;
 	linkeNodeNum=0; 	// 连接的节点数。上面只记录的下一个，连接的要把只想自己的也算上。每个最多有6个：两个角的顶角处
@@ -27,6 +32,10 @@ class SurfaceNetNode{
 		this.adjz=this.adjz+ (this.tmpz - this.adjz)*k;
 	}
 
+	getDataID(){
+
+	}
+
 	adjbynode(n:SurfaceNetNode){
 		this.tmpx+=n.adjx;
 		this.tmpy+=n.adjy;
@@ -38,19 +47,78 @@ class SurfaceNetNode{
 	}
 }
 
-function isBorder(data:Float32Array, dims:number[], x:int,y:int,z:int){
-	return false;
-}
+/**
+ *    y
+ *    |
+ *    |_______x
+ *   /
+ *  /
+ * z
+ */
+var neighborDir=[
+	[-1,1,1], [-1,1,0], [-1,1,-1],  [0,1,1],  [0,1,0],  [0,1,-1],  [1,1,1], [1,1,0], [1,1,-1],	// 最上层，沿着x切
+	[-1,0,1], [-1,0,0], [-1,0,-1],  [0,0,1],/*[0,0,0],*/[0,0,-1],  [1,0,1], [1,0,0], [1,0,-1],
+	[-1,-1,1],[-1,-1,0],[-1,-1,-1], [0,-1,1], [0,-1,0], [0,-1,-1], [1,-1,1],[1,-1,0],[1,-1,-1],
+];
 
 export class SurfaceNetSmoother{
 	private surfacenet:SurfaceNetNode[]=[];
+	private dist=[0,0,0]
 	relaxSpeed=0.5;
+	private data:Float32Array;
+	private dims:number[];
+	private maxx=0;
+	private maxy=0;
+	private maxz=0;
+	/** 26个相邻点的偏移。注意在边界的地方不允许使用 */
+	private neighbors:number[];
+
+	private isBorder(id:int):boolean{
+		let data = this.data;
+		let nb = this.neighbors;
+		//if( x==0 || y==0 || z==0 || x==dims[0]-1 || y==dims[1]-1 || z==dims[2]-1 )
+		//	return true;
+
+		// 注意现在假设空的地方为0。 注意不要位置浸染
+		return data[id]==0 && (
+			data[id+nb[0]]!=0||
+			data[id+nb[1]]!=0||
+			data[id+nb[2]]!=0||
+			data[id+nb[3]]!=0||
+			data[id+nb[4]]!=0||
+			data[id+nb[5]]!=0||
+			data[id+nb[6]]!=0||
+			data[id+nb[7]]!=0||
+			data[id+nb[8]]!=0||
+			data[id+nb[9]]!=0||
+			data[id+nb[10]]!=0||
+			data[id+nb[11]]!=0||
+			data[id+nb[12]]!=0||
+			data[id+nb[13]]!=0||
+			data[id+nb[14]]!=0||
+			data[id+nb[15]]!=0||
+			data[id+nb[16]]!=0||
+			data[id+nb[17]]!=0||
+			data[id+nb[18]]!=0||
+			data[id+nb[19]]!=0||
+			data[id+nb[20]]!=0||
+			data[id+nb[21]]!=0||
+			data[id+nb[22]]!=0||
+			data[id+nb[23]]!=0||
+			data[id+nb[24]]!=0||
+			data[id+nb[25]]!=0||
+			data[id+nb[26]]!=0);
+	}
+
 	/**
 	 * 创建表面节点网，这个网上的点是距离值为0的点
 	 * 不允许出现粗细为1的形状，会被忽略
+	 * 数据格式先假设为 y 向上
 	 * @param data 值只能是0或者1
 	 */
 	createSurfaceNet(data:Float32Array, dims:number[]){
+		this.data=data;
+		this.dims=dims;
 		let xn=dims[0];
 		let yn=dims[1];
 		let zn=dims[2];
@@ -59,29 +127,65 @@ export class SurfaceNetSmoother{
 		let dy = xn*zn;
 		let dz = xn;
 
-		// 找出所有的边界
+		let dist = this.dist;
+		dist[0] = dx;
+		dist[1] = dy;
+		dist[2] = dz;
 
-		// 针对边界分别扫描xyz进行连接
+		let neighbors = this.neighbors;
+		neighbors.length=26;
+		for(let i=0; i<26; i++){
+			let ndir = neighborDir[i];
+			neighbors[i]=ndir[0]+ndir[1]*dy+ndir[2]*dz;
+		}
+		
+		let isBorder=this.isBorder;
+		let nets = this.surfacenet;
 
-		// 扫描x
-		for(let x=0; x<xn; x++){
-			for(let y=0; y<yn; y++){
-				for(let z=0; z<zn; z++){
-					// 自己是边界，并且右边也是边界。边界的条件是自己是1且26个邻格有0
-					if(isBorder(data,dims,x,y,z) && isBorder(data,dims,x+1,y,z)){
+		let maxx=xn-1;
+		let maxy=yn-1;
+		let maxz=zn-1;
 
+		// 找出所有的边界。为了简单，先不考虑最外一圈
+		let nid=0;
+		for(let x=1; x<maxx; x++){
+			for(let y=1; y<maxy; y++){
+				for(let z=1; z<maxz; z++){
+					if(data[nid]===0){
+						if(isBorder(nid)){
+							let n = new SurfaceNetNode();
+							n.voxID=nid;
+							nets[nid]=n;
+						}
 					}
+					nid++;
 				}
 			}
 		}
-		// 扫描y
-		for(let i=0; i<yn; i++){
 
+		// 看所有的节点是否有相邻点。 没有的会被消掉
+		let netNodes:SurfaceNetNode[]=[];
+		for(let cn of nets){
+			let id = cn.voxID;
+			let has=false;
+			
+			if(nets[id+1]){ 
+				has=true; 
+				cn.nextX = id+1;
+			}			
+			if(nets[id+dy]){	// 注意如果是边缘的话这个会出错
+				has=true;
+				cn.nextY=id+dy;
+			}
+			if(nets[id+dz]){
+				has=true;
+				cn.netxZ=id+dz;
+			}
+			if(has){
+				netNodes[id]=cn;
+			}
 		}
-		// 扫描z
-		for(let i=0; i<zn; i++){
-
-		}
+		nets = this.surfacenet = netNodes;
 	}
 
 	/**
@@ -108,8 +212,7 @@ export class SurfaceNetSmoother{
 
 		for(let i=0; i<it; i++){
 			// 互相影响
-			for(let n=0; n<n; n++){
-				let cn = net[n];
+			for( let cn of net ){
 				if(cn.nextX>0){
 					let nxn = net[cn.nextX];
 					cn.adjbynode(nxn);
@@ -136,3 +239,4 @@ export class SurfaceNetSmoother{
 		}
 	}	
 }
+

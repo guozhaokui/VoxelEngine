@@ -30,7 +30,7 @@ export function genVoxData(min: number, max: number, sidelen: i32, f: (x: number
 }
 
 export function SphereData(min: number, max: number, sidelen: int) {
-	return { data: genVoxData(-2, 2, sidelen,
+	return { data: genVoxData(min, max, sidelen,
 		(x, y, z) => {
 			return x * x + y * y + z * z - 1.0;
 		}
