@@ -3,6 +3,18 @@ import { BoundBox } from "laya/d3/math/BoundBox";
 /**
  * 取实心的地方为-1，空心的为1，则对于边界处的空格子，其中心的值为0，移动范围是 (-1,1)
  * 经过调整后，中心点发生了偏移,在边上的交点根据中心点的xyz进行调整就行
+ * 
+ * 问题:
+ * 		单个节点的问题
+ * 			如果一个平面上只有一个格子的坑，则会形成不合理的节点
+ * 				  。
+ *                |
+ *          --。--。---。---
+ * 			两个格子的坑也会，需要>两个
+ * 				  。---。
+ *                |    |
+ *          --。--。---。---
+ * 
  */
 
 class SurfaceNetNode{
@@ -30,6 +42,7 @@ class SurfaceNetNode{
 		this.adjx=this.adjx+ (this.tmpx - this.adjx)*k;
 		this.adjy=this.adjy+ (this.tmpy - this.adjy)*k;
 		this.adjz=this.adjz+ (this.tmpz - this.adjz)*k;
+		// TODO 约束到格子内
 	}
 
 	getDataID(){
@@ -71,7 +84,7 @@ export class SurfaceNetSmoother{
 	private maxy=0;
 	private maxz=0;
 	/** 26个相邻点的偏移。注意在边界的地方不允许使用 */
-	private neighbors:number[];
+	private neighbors:number[]=[];
 
 	private isBorder(id:int):boolean{
 		let data = this.data;
@@ -139,33 +152,45 @@ export class SurfaceNetSmoother{
 			neighbors[i]=ndir[0]+ndir[1]*dy+ndir[2]*dz;
 		}
 		
-		let isBorder=this.isBorder;
 		let nets = this.surfacenet;
 
 		let maxx=xn-1;
 		let maxy=yn-1;
 		let maxz=zn-1;
 
+		console.time('findborder');
+		let nodenum=0;
 		// 找出所有的边界。为了简单，先不考虑最外一圈
 		let nid=0;
-		for(let x=1; x<maxx; x++){
-			for(let y=1; y<maxy; y++){
-				for(let z=1; z<maxz; z++){
+		for(let y=1; y<maxy; y++){
+			for(let z=1; z<maxz; z++){
+				nid=y*dy+z*dz;
+				nid+=1;
+				for(let x=1; x<maxx; x++){
 					if(data[nid]===0){
-						if(isBorder(nid)){
+						if(this.isBorder(nid)){
 							let n = new SurfaceNetNode();
 							n.voxID=nid;
+							n.adjx = x;
+							n.adjy = y;
+							n.adjz = z;
 							nets[nid]=n;
+							nodenum++;
 						}
 					}
 					nid++;
 				}
 			}
 		}
+		console.log('nodenum=', nodenum);
+		console.timeEnd('findborder');
 
 		// 看所有的节点是否有相邻点。 没有的会被消掉
 		let netNodes:SurfaceNetNode[]=[];
 		for(let cn of nets){
+			//TODO
+			if(cn==undefined)
+				continue;
 			let id = cn.voxID;
 			let has=false;
 			
@@ -190,6 +215,7 @@ export class SurfaceNetSmoother{
 
 	/**
 	 * 只更新局部
+	 * 问题：单向记录数据不便于更新数据（扩充一个边查找也可以）
 	 * @param aabb 
 	 */
 	public updateRegin(aabb:BoundBox){
@@ -200,19 +226,20 @@ export class SurfaceNetSmoother{
 	 * 放松网络
 	 * @param it  次数
 	 */
-	private relaxSurfaceNet(it:number){
+	public relaxSurfaceNet(it:number){
 		let net = this.surfacenet;
 		let k = this.relaxSpeed;
 		let n = net.length;
 		// 清零
-		for(let n=0; n<n; n++){
-			let cn = net[n];
-			cn.resetTarget();
+		for(let i=0; i<n; i++){
+			let cn = net[i];
+			cn && cn.resetTarget();
 		}
 
 		for(let i=0; i<it; i++){
 			// 互相影响
 			for( let cn of net ){
+				if(!cn) continue;
 				if(cn.nextX>0){
 					let nxn = net[cn.nextX];
 					cn.adjbynode(nxn);
@@ -230,6 +257,7 @@ export class SurfaceNetSmoother{
 			// 朝目标移动。
 			for(let n=0; n<n; n++){
 				let cn = net[n];
+				if(!cn) continue;
 				let ln = cn.linkeNodeNum;
 				cn.tmpx/=ln;
 				cn.tmpy/=ln;

@@ -15,6 +15,7 @@ import { SurfaceNets } from "./SurfaceNets";
 import { GridSurface } from "./editor/gridSurface";
 import { Quaternion } from "laya/d3/math/Quaternion";
 import { MarchingCubes } from "./MarchingCubes";
+import { SurfaceNetSmoother } from "./SurfaceNetSmoother";
 
 //
 let scene: Scene3D;
@@ -58,9 +59,12 @@ let data = SphereData(-2,2,sidelen);
 let isos = new SurfaceNets();
 //let mesh1 = isos.tomesh(data.data,data.dims);
 //test data
-data.data = new Float32Array(100*100*100);
-data.data.fill(1);
-data.dims=[100,100,100];
+let s=7;
+let dz=s;
+let dy=s*s;
+data.data = new Float32Array(s**3);
+//data.data.fill(1);
+data.dims=[s,s,s];
 /*
 for(let z=0; z<10; z++){
 	for(let y=0; y<10; y++){
@@ -76,17 +80,18 @@ for(let z=0; z<10; z++){
 	}
 }
 */
-for(let z=1; z<60; z++){
-	for(let y=1; y<60; y++){
-		for(let x=1; x<60; x++){
-			let dx = x-4; dx/=14;
-			let dy = y-4; dy/=14;
-			let dz = z-4; dz/=14;
-			data.data[x+y*100+z*10000]=-1;
+for(let z=2; z<5; z++){
+	for(let y=2; y<5; y++){
+		for(let x=2; x<5; x++){
+			data.data[x+y*dy+z*dz]=1;
 		}
 	}
 }
 //test data end
+
+let m2 = new SurfaceNetSmoother();
+m2.createSurfaceNet(data.data,data.dims);
+m2.relaxSurfaceNet(1);
 
 let mesh1 = MarchingCubes(data.data,data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
