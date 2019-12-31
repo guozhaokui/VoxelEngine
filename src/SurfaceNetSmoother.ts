@@ -257,8 +257,8 @@ export class SurfaceNetSmoother{
 			}
 
 			// 朝目标移动。
-			for(let n=0; n<n; n++){
-				let cn = net[n];
+			for(let i=0; i<n; i++){
+				let cn = net[i];
 				if(!cn) continue;
 				let ln = cn.linkeNodeNum;
 				cn.tmpx/=ln;
