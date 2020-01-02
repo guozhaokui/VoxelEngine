@@ -10,11 +10,13 @@ import { BoundBox } from "laya/d3/math/BoundBox";
  * 				  。
  *                |
  *          --。--。---。---
+ * 				直接处理呢
  * 			两个格子的坑也会，需要>两个
  * 				  。---。
  *                |    |
  *          --。--。---。---
  * 
+ * 			实心的突出一个格子能表达（对应3个外节点），凹陷不能
  */
 
 class SurfaceNetNode{
@@ -30,12 +32,19 @@ class SurfaceNetNode{
 
 	nextX=-1;		// 下一个相连的节点id。-1表示没有。每次处理的时候会把自己加到对方，同时把对方加到自己。 用id是一个位置，比对象更容易维护
 	nextY=-1;
-	netxZ=-1;
+	nextZ=-1;
+	//DEBUG
+	preX=-1;
+	preY=-1;
+	preZ=-1;
+	//DEBUG
 	linkeNodeNum=0; 	// 连接的节点数。上面只记录的下一个，连接的要把指向自己的也算上。每个最多有6个：两个角的顶角处
+	value=0;			// 缺省为0，调整后从-1到1之间变化
 	//nextNodes:SurfaceNets[]=[];
 
 	resetTarget(){
 		this.tmpx=this.tmpy=this.tmpz=0;
+		this.value=0;
 	}
 
 	step(k:number){
@@ -74,6 +83,8 @@ var neighborDir=[
 	[-1,-1,1],[-1,-1,0],[-1,-1,-1], [0,-1,1], [0,-1,0], [0,-1,-1], [1,-1,1],[1,-1,0],[1,-1,-1],
 ];
 
+let int1 = new Uint32Array(2);
+
 export class SurfaceNetSmoother{
 	private surfacenet:SurfaceNetNode[]=[];
 	private dist=[0,0,0]
@@ -85,6 +96,57 @@ export class SurfaceNetSmoother{
 	private maxz=0;
 	/** 26个相邻点的偏移。注意在边界的地方不允许使用 */
 	private neighbors:number[]=[];
+
+	//for debug
+	private getData(x:int,y:int,z:int){
+		let d = this.data;
+		let dist = this.dist;
+		let dims=this.dims;
+		if(x<0||y<0||z<0||x>=dims[0]||y>=dims[1]||z>=dims[2])
+			debugger;
+		return d[x+dist[1]*y+dist[2]*z]
+	}
+	private idtoxyz(id:int){
+		let dist = this.dist;
+		let dims = this.dims;
+		int1[0] = id/dims[0]%dims[2];	// z = id/xsize%zsize. x部分变成小数被丢掉，剩下的是 y*zsize+z
+		int1[1] = id/dist[1];	// y = id/(xsize*zsize)
+		return {x:id%dims[0],y:int1[1],z:int1[0]};
+	}
+	private printNb(idOrx:int,y:int,z:int){
+		let r = this.idtoxyz(idOrx);
+		let p3=y!=undefined;
+		let cx=p3?idOrx:r.x;
+		let cy=p3?y:r.y;
+		let cz=p3?z:r.z;
+		console.log(`
+  %d %d %d
+ %d %d %d
+%d %d %d
+
+  %d %d %d
+ %d %d %d
+%d %d %d
+
+  %d %d %d
+ %d %d %d
+%d %d %d
+`, 
+this.getData(cx-1,cy+1,cz-1), this.getData(cx,cy+1,cz-1), this.getData(cx+1,cy+1,cz-1),
+this.getData(cx-1,cy+1,cz),   this.getData(cx,cy+1,cz),   this.getData(cx+1,cy+1,cz),
+this.getData(cx-1,cy+1,cz+1), this.getData(cx,cy+1,cz+1), this.getData(cx+1,cy+1,cz+1),
+
+this.getData(cx-1,cy,cz-1),   this.getData(cx,cy,cz-1),   this.getData(cx+1,cy,cz-1),
+this.getData(cx-1,cy,cz),     this.getData(cx,cy,cz),     this.getData(cx+1,cy,cz),
+this.getData(cx-1,cy,cz+1),   this.getData(cx,cy,cz+1),   this.getData(cx+1,cy,cz+1),
+
+this.getData(cx-1,cy-1,cz-1), this.getData(cx,cy-1,cz-1), this.getData(cx+1,cy-1,cz-1),
+this.getData(cx-1,cy-1,cz),   this.getData(cx,cy-1,cz),   this.getData(cx+1,cy-1,cz),
+this.getData(cx-1,cy-1,cz+1), this.getData(cx,cy-1,cz+1), this.getData(cx+1,cy-1,cz+1),
+
+);
+	}
+	//for debug end
 
 	private isBorder(id:int):boolean{
 		let data = this.data;
@@ -119,8 +181,7 @@ export class SurfaceNetSmoother{
 			data[id+nb[22]]!=0||
 			data[id+nb[23]]!=0||
 			data[id+nb[24]]!=0||
-			data[id+nb[25]]!=0||
-			data[id+nb[26]]!=0);
+			data[id+nb[25]]!=0);
 	}
 
 	/**
@@ -185,7 +246,8 @@ export class SurfaceNetSmoother{
 		console.log('nodenum=', nodenum);
 		console.timeEnd('findborder');
 
-		// 看所有的节点是否有相邻点。 没有的会被消掉
+		// 看所有的节点是否有相邻点。 没有的会被消掉（只能消除单个点，所以可能还有多个独立部分）
+		// TODO 这个合到上面应该会更快
 		let netNodes:SurfaceNetNode[]=[];
 		for(let cn of nets){
 			//TODO
@@ -193,20 +255,32 @@ export class SurfaceNetSmoother{
 				continue;
 			let id = cn.voxID;
 			
-			if(nets[id+1]){ 
-				cn.nextX = id+1;
+			let nexid=id+1;
+			let nexn = nets[nexid];
+			if(nexn){ 
+				cn.nextX = nexid;
 				cn.linkeNodeNum++;
-				nets[id+1].linkeNodeNum++;
-			}			
-			if(nets[id+dy]){	// 注意如果是边缘的话这个会出错
-				cn.nextY=id+dy;
-				cn.linkeNodeNum++;
-				nets[id+dy].linkeNodeNum++;
+				nexn.linkeNodeNum++;
+				if(nexn.preX!=-1) debugger
+				else nexn.preX=id;
 			}
-			if(nets[id+dz]){
-				cn.netxZ=id+dz;
+			nexid = id+dy;
+			nexn = nets[nexid];
+			if(nexn){	// 注意如果是边缘的话这个会出错
+				cn.nextY=nexid;
 				cn.linkeNodeNum++;
-				nets[id+dz].linkeNodeNum++;
+				nexn.linkeNodeNum++;
+				if(nexn.preY!=-1) debugger
+				else nexn.preY=id;
+			}
+			nexid=id+dz;
+			nexn = nets[nexid];
+			if(nexn){
+				cn.nextZ=nexid;
+				cn.linkeNodeNum++;
+				nexn.linkeNodeNum++;
+				if(nexn.preZ!=-1) debugger
+				else nexn.preZ=id;
 			}
 			if(cn.linkeNodeNum>0){
 				netNodes[id]=cn;
@@ -229,6 +303,7 @@ export class SurfaceNetSmoother{
 	 * @param it  次数
 	 */
 	public relaxSurfaceNet(it:number){
+		let data = this.data;
 		let net = this.surfacenet;
 		let k = this.relaxSpeed;
 		let n = net.length;
@@ -250,8 +325,8 @@ export class SurfaceNetSmoother{
 					let nyn = net[cn.nextY];
 					cn.adjbynode(nyn);
 				}
-				if(cn.netxZ>0){
-					let nzn = net[cn.netxZ];
+				if(cn.nextZ>0){
+					let nzn = net[cn.nextZ];
 					cn.adjbynode(nzn);
 				}
 			}
@@ -267,6 +342,14 @@ export class SurfaceNetSmoother{
 				cn.step(k);
 			}
 		}
+
+		// 应用到原来的数据上
+		for(let i=0; i<n; i++){
+			let cn = net[i];
+			if(!cn) continue;
+			data[cn.voxID] = cn.value;
+		}
+
 	}	
 }
 

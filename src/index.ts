@@ -59,7 +59,7 @@ let data = SphereData(-2,2,sidelen);
 let isos = new SurfaceNets();
 //let mesh1 = isos.tomesh(data.data,data.dims);
 //test data
-let s=7;
+let s=70;
 let dz=s;
 let dy=s*s;
 data.data = new Float32Array(s**3);
@@ -80,9 +80,9 @@ for(let z=0; z<10; z++){
 	}
 }
 */
-for(let z=2; z<5; z++){
-	for(let y=2; y<5; y++){
-		for(let x=2; x<5; x++){
+for(let z=2; z<50; z++){
+	for(let y=2; y<50; y++){
+		for(let x=2; x<50; x++){
 			data.data[x+y*dy+z*dz]=1;
 		}
 	}
