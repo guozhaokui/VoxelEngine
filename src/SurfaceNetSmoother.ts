@@ -347,7 +347,8 @@ this.getData(cx-1,cy-1,cz+1), this.getData(cx,cy-1,cz+1), this.getData(cx+1,cy-1
 		for(let i=0; i<n; i++){
 			let cn = net[i];
 			if(!cn) continue;
-			data[cn.voxID] = cn.value;
+			 
+			//data[cn.voxID] = Math.random();//cn.value;
 		}
 
 	}	

@@ -16,6 +16,7 @@ import { GridSurface } from "./editor/gridSurface";
 import { Quaternion } from "laya/d3/math/Quaternion";
 import { MarchingCubes } from "./MarchingCubes";
 import { SurfaceNetSmoother } from "./SurfaceNetSmoother";
+import { RenderState } from "laya/d3/core/material/RenderState";
 
 //
 let scene: Scene3D;
@@ -28,8 +29,8 @@ var camera = (<Camera>scene.addChild(new Camera(0, 1, 10000)));
 //camera.transform.translate(new Vector3(0, 0, 6));
 //camera.transform.rotate(new Vector3(-15, 0, 0), true, false);
 let camctrl = camera.addComponent(MouseCtrl1) as MouseCtrl1;
-camera.clearColor=new Vector4(0.2,0.2,0.2,0);
-camctrl.initCamera(new Vector3(0, 0, 0), new Vector3(0, 0, 0), 132);
+camera.clearColor = new Vector4(0.2, 0.2, 0.2, 0);
+camctrl.initCamera(new Vector3(0, 20, 0), new Vector3(0, 0, 0), 132);
 //camera.addComponent(CameraMoveScript);
 //camera.clearColor = null;
 
@@ -43,8 +44,8 @@ directionLight.transform.worldMatrix = mat;
 
 
 
-function getdata(x:number,y:number,z:number):number{
-	return Math.random()>0.5?1:0;
+function getdata(x: number, y: number, z: number): number {
+	return Math.random() > 0.5 ? 1 : 0;
 	return 0;
 }
 
@@ -52,61 +53,76 @@ function getdata(x:number,y:number,z:number):number{
 //scene.addChild(mesh);
 //mesh.transform.localPosition = new Vector3(-5,-5,-5)
 
-let sidelen=44;
+let sidelen = 44;
 //let data = SphereData(-2,2,sidelen);
-let data = SphereData(-2,2,sidelen);
+let data = SphereData(-2, 2, sidelen);
 
 let isos = new SurfaceNets();
 //let mesh1 = isos.tomesh(data.data,data.dims);
 //test data
-let s=70;
-let dz=s;
-let dy=s*s;
-data.data = new Float32Array(s**3);
-//data.data.fill(1);
-data.dims=[s,s,s];
-/*
-for(let z=0; z<10; z++){
-	for(let y=0; y<10; y++){
-		for(let x=0; x<10; x++){
-			let dx = x-4; dx/=4;
-			let dy = y-4; dy/=4;
-			let dz = z-4; dz/=4;
-			let r = Math.sqrt(dx*dx+dy*dy+dz*dz)-1;
-			if(r>0)r=1;
-			if(r<0)r=-1;
-			data.data[x+y*10+z*100]=r;
+if (true) {
+	let s = 70;
+	let distZ = s;
+	let distY = s * s;
+	data.data = new Float32Array(s ** 3);
+	data.data.fill(-1);
+	data.dims = [s, s, s];
+
+	/*
+	let c=(s/2)|0
+	for(let z=0; z<s; z++){
+		for(let y=0; y<s; y++){
+			for(let x=0; x<s; x++){
+				let dx = x-c; dx/=c;
+				let dy = y-c; dy/=c;
+				let dz = z-c; dz/=c;
+				let r = Math.sqrt(dx*dx+dy*dy+dz*dz)-1;
+				if(r<0)r=1;
+				else r=0;
+				data.data[x+y*distY+z*distZ] = r;
+			}
 		}
 	}
-}
-*/
-for(let z=2; z<50; z++){
-	for(let y=2; y<50; y++){
-		for(let x=2; x<50; x++){
-			data.data[x+y*dy+z*dz]=1;
+	*/
+	for (let z = 2; z < 50; z++) {
+		for (let y = 2; y < 50; y++) {
+			for (let x = 2; x < 50; x++) {
+				data.data[x + y * distY + z * distZ] = 1;
+				if (z == 49 ) {
+					data.data[x + y * distY + z * distZ] = 1+Math.random();
+				}
+			}
 		}
 	}
 }
 //test data end
 
 let m2 = new SurfaceNetSmoother();
-m2.createSurfaceNet(data.data,data.dims);
-m2.relaxSurfaceNet(1);
+m2.createSurfaceNet(data.data, data.dims);
+//m2.relaxSurfaceNet(1);
 
-let mesh1 = MarchingCubes(data.data,data.dims);
+let mesh1 = MarchingCubes(data.data, data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
 
-let gridq =new Quaternion();
-Quaternion.createFromAxisAngle(new Vector3(1,0,0), Math.PI/4, gridq);
-let grid = new GridSurface(10,null,null);
+let gridq = new Quaternion();
+Quaternion.createFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 4, gridq);
+let grid = new GridSurface(10, null, null);
 //grid.showAxis=false;
 grid.addToScene(scene);
 
 let meshes = polyToTriMesh(mesh1.vertices, mesh1.faces);
-meshes.forEach( mesh=>{
+meshes.forEach(mesh => {
 	let cmesh = new MeshSprite3D(mesh);
+	var mtl = new BlinnPhongMaterial();
+	//mtl.cull = RenderState.CULL_NONE;
+	mtl.blend = RenderState.BLEND_ENABLE_ALL;
+	mtl.blendSrc = RenderState.BLENDPARAM_SRC_ALPHA;
+	mtl.blendDst = RenderState.BLENDPARAM_ONE_MINUS_SRC_ALPHA;
+	mtl.depthTest = RenderState.DEPTHTEST_LESS;
+	cmesh.meshRenderer.sharedMaterial = mtl;
+
 	scene.addChild(cmesh);
-	cmesh.transform.localPosition = new Vector3(-10,0,0)
+	cmesh.transform.localPosition = new Vector3(-10, 0, 0)
 });
 
 

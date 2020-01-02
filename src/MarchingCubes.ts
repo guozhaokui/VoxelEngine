@@ -395,7 +395,7 @@ export var MarchingCubes = (function () {
 						continue;
 					}
 
-					// 12条边，用到了哪一条
+					// 每个格子由12条边组成，以一个格子为单位组建三角形
 					for (var i = 0; i < 12; ++i) {
 						if ((edge_mask & (1 << i)) === 0) {
 							continue;
@@ -407,16 +407,19 @@ export var MarchingCubes = (function () {
 						var a = grid[e[0]];
 						var b = grid[e[1]];
 						// 如果这条边是边界边，则a和b必然是反号的，现在求0点的位置，因此是 (0-a)/(b-a) = a/(a-b)
+						// 问题：由于是计算0值，对现在的需求（二级制数据，修改边界值）不满足，因为0是固定的，不定的是边界的值
+						var cvert = [0, 0, 0];
 						var d = a - b;
 						var  t = 0;
-						if (Math.abs(d) > 1e-6) {
-							t = a / d;
-						}
-
-						var cvert = [0, 0, 0];
-						cvert[0] = cx + p0[0] + t * (p1[0] - p0[0]);	// cx + p0.x + t*(p1-p0).x
-						cvert[1] = cy + p0[1] + t * (p1[1] - p0[1]);
-						cvert[2] = cz + p0[2] + t * (p1[2] - p0[2]);
+							if (Math.abs(d) > 1e-6) {//d=0的话，t就是0
+								t = a / d;
+								//d= Math.sign(a)-Math.sign(b);
+								//t = a/d;
+							}
+						// 当前格子中心 cx,cy,cz,  +偏移到p0, +加权偏移到p1
+						cvert[0] = cx + 0.9*(p0[0] + t * (p1[0]-p0[0]));	// cx + p0.x + t*(p1-p0).x
+						cvert[1] = cy + 0.9*(p0[1] + t * (p1[1]-p0[1]));
+						cvert[2] = cz + 0.9*(p0[2] + t * (p1[2]-p0[2]));
 
 						vertices.push(cvert);
 					}
