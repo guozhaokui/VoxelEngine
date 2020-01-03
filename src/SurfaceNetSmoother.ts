@@ -21,16 +21,121 @@ import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
  *          --。--。---。---
  * 
  * 			实心的突出一个格子能表达（对应3个外节点），凹陷不能
+ * 
+ * 注意：
+ * 	边界在外面，对应空心的
+ */
+
+/**
+ *    y
+ *    |
+ *    |_______x
+ *   /
+ *  /
+ * z
+ */
+var neighborDir = [
+	[-1, 1, 1], [-1, 1, 0], [-1, 1, -1], [0, 1, 1], [0, 1, 0], [0, 1, -1], [1, 1, 1], [1, 1, 0], [1, 1, -1],	// 最上层，沿着x切
+	[-1, 0, 1], [-1, 0, 0], [-1, 0, -1], [0, 0, 1],/*[0,0,0],*/[0, 0, -1], [1, 0, 1], [1, 0, 0], [1, 0, -1],
+	[-1, -1, 1], [-1, -1, 0], [-1, -1, -1], [0, -1, 1], [0, -1, 0], [0, -1, -1], [1, -1, 1], [1, -1, 0], [1, -1, -1],
+];
+
+/**
+ *           py   nz
+ *           2   5
+ *           |  /
+ *           | /
+ *    3------+------1 px
+ *          /|
+ *         / |
+ *        0  4
+ *      pz   ny
+ * 
+ * 这个是兼容老的layame的顺序
  */
 
 const enum AdjNode {
-	PX = 0,
-	PY = 1,
-	PZ = 2,
+	PX = 1,
+	PY = 2,
+	PZ = 0,
 	NX = 3,
 	NY = 4,
 	NZ = 5
 }
+
+/**
+ * 每种边界情况对应的三角形列表
+ * <3个邻点都不组成三角形
+ * 按照顺时针朝外试试
+ * 当前点都在中间，不写了，所以每个三角形只记两个点
+ */
+const TriTrable = [
+	[],//0		<3个都不能组成
+	[],//1
+	[],//10
+	[],//11
+	[],//100
+	[],//101
+	[],//110
+	//111
+	[],//1000
+	[],//1001
+	[],//1010
+	//1011
+	[],//1100
+	//1101
+	//1110
+	//1111
+	[],//10000
+	[],//10001
+	[],//10010
+	//10011
+	[],//10100
+	//10101
+	//10110
+	//10111
+	[],//11000
+	//11001
+	//11010
+	//11011
+	//11100
+	//11101
+	//11110
+	//11111
+	[],//100000
+	[],//100001
+	[],//100010
+	//100011
+	[],//100100
+	//100101
+	//100110
+	//100111
+	[],//101000
+	//101001
+	//101010
+	//101011	0,1,3,5 平面十字
+	//101100
+	//101101		
+	//101110
+	//101111
+	[],//110000
+	//110001
+	//110010
+	//110011
+	//110100
+	//110101
+	//110110
+	//110111
+	//111000
+	//111001
+	//111010
+	//111011
+	//111100
+	//111101
+	//111110
+	[]//111111
+];
+
 
 class SurfaceNetNode {
 	voxID: int = 0;		// 最大允许1024**3。能反向得到xyz
@@ -44,7 +149,9 @@ class SurfaceNetNode {
 	tmpz = 0;
 
 	// 相邻信息
-	adjinfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有实心voxel。这些也为计算法线提供信息
+	adjInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有实心voxel。这些也为计算法线提供信息。 TODO 可以不用
+
+	linkInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有表面节点
 	// 每次处理的时候会把自己加到对方，同时把对方加到自己。 用id是一个位置，比对象更容易维护.
 	// 一次处理三个也是为了提高效率
 
@@ -68,7 +175,6 @@ class SurfaceNetNode {
 	}
 
 	getDataID() {
-
 	}
 
 	adjbynode(n: SurfaceNetNode) {
@@ -80,21 +186,16 @@ class SurfaceNetNode {
 		n.tmpy += this.posy;
 		n.tmpz += this.posz;
 	}
-}
 
-/**
- *    y
- *    |
- *    |_______x
- *   /
- *  /
- * z
- */
-var neighborDir = [
-	[-1, 1, 1], [-1, 1, 0], [-1, 1, -1], [0, 1, 1], [0, 1, 0], [0, 1, -1], [1, 1, 1], [1, 1, 0], [1, 1, -1],	// 最上层，沿着x切
-	[-1, 0, 1], [-1, 0, 0], [-1, 0, -1], [0, 0, 1],/*[0,0,0],*/[0, 0, -1], [1, 0, 1], [1, 0, 0], [1, 0, -1],
-	[-1, -1, 1], [-1, -1, 0], [-1, -1, -1], [0, -1, 1], [0, -1, 0], [0, -1, -1], [1, -1, 1], [1, -1, 0], [1, -1, -1],
-];
+	get linkInfoStr(){
+		return ((this.linkInfo&(1<<AdjNode.PX))?'PX ':'')+
+		((this.linkInfo&(1<<AdjNode.PY))?'PY ':'')+
+		((this.linkInfo&(1<<AdjNode.PZ))?'PZ ':'')+
+		((this.linkInfo&(1<<AdjNode.NX))?'NX ':'')+
+		((this.linkInfo&(1<<AdjNode.NY))?'NY ':'')+
+		((this.linkInfo&(1<<AdjNode.NZ))?'NZ ':'');
+	}
+}
 
 let int1 = new Uint32Array(2);
 
@@ -162,6 +263,29 @@ export class SurfaceNetSmoother {
 	}
 	//for debug end
 
+	private getAdjInfo(id: int) {
+		let data = this.data;
+		let nb = this.neighbors;
+		let ret = 0;
+		let dist = this.dist;
+		let distx = dist[0];
+		let disty = dist[1];
+		let distz = dist[2];
+		if (data[id + distx] > 0)	//TODO 注意会位置溢出
+			ret |= (1 << AdjNode.PX);
+		if (data[id - distx] > 0)
+			ret |= (1 << AdjNode.NX);
+		if (data[id + disty] > 0)
+			ret |= (1 << AdjNode.PY);
+		if (data[id - disty] > 0)
+			ret |= (1 << AdjNode.NY);
+		if (data[id + distz] > 0)
+			ret |= (1 << AdjNode.PZ);
+		if (data[id - distz] > 0)
+			ret |= (1 << AdjNode.NZ);
+		return ret;
+	}
+
 	private isBorder(id: int): boolean {
 		let data = this.data;
 		let nb = this.neighbors;
@@ -169,6 +293,7 @@ export class SurfaceNetSmoother {
 		//	return true;
 
 		// 注意现在假设空的地方为0。 注意不要位置浸染
+		// 兼容 0空 1实   -1空 1实
 		return data[id] <= 0 && (
 			data[id + nb[0]] > 0 ||
 			data[id + nb[1]] > 0 ||
@@ -270,29 +395,30 @@ export class SurfaceNetSmoother {
 			let nexid = id + 1;
 			let nexn = nets[nexid];
 			if (nexn) {
-				cn.adjinfo |= 1;
+				cn.linkInfo |= (1 << AdjNode.PX);
 				cn.linkeNodeNum++;
 				nexn.linkeNodeNum++;
-				nexn.adjinfo |= (1 << AdjNode.NX);
+				nexn.linkInfo |= (1 << AdjNode.NX);
 			}
 			nexid = id + dy;
 			nexn = nets[nexid];
 			if (nexn) {	// 注意如果是边缘的话这个会出错
-				cn.adjinfo |= (1 << AdjNode.PY);
+				cn.linkInfo |= (1 << AdjNode.PY);
 				cn.linkeNodeNum++;
 				nexn.linkeNodeNum++;
-				nexn.adjinfo |= (1 << AdjNode.NY);
+				nexn.linkInfo |= (1 << AdjNode.NY);
 			}
 			nexid = id + dz;
 			nexn = nets[nexid];
 			if (nexn) {
-				cn.adjinfo |= (1 << AdjNode.PZ);
+				cn.linkInfo |= (1 << AdjNode.PZ);
 				cn.linkeNodeNum++;
 				nexn.linkeNodeNum++;
-				nexn.adjinfo |= (1 << AdjNode.NZ);
+				nexn.linkInfo |= (1 << AdjNode.NZ);
 			}
 			if (cn.linkeNodeNum > 0) {
 				netNodes[id] = cn;
+				this.getAdjInfo(cn.voxID);
 				this.dbgSurfaceNet.push(cn);
 			}
 		}
@@ -335,7 +461,7 @@ export class SurfaceNetSmoother {
 			for (let cn of net) {
 				if (!cn) continue;
 				let cid = cn.voxID;
-				let adjinfo = cn.adjinfo;
+				let adjinfo = cn.linkInfo;
 				if (adjinfo & xflag) {
 					let nxn = net[cid + distx];	// TODO 注意这里可能会绕到错误的地方
 					cn.adjbynode(nxn);
@@ -381,49 +507,119 @@ export class SurfaceNetSmoother {
 		let d2 = new Vector3();
 		let norm = new Vector3();
 		let ret: Mesh[] = [];
+		let distx = this.dist[0];
+		let disty = this.dist[1];
+		let distz = this.dist[2];
+		let pxflag = 1 << AdjNode.PX;
+		let pyflag = 1 << AdjNode.PY;
+		let pzflag = 1 << AdjNode.PZ;
+		let nxflag = 1 << AdjNode.NX;
+		let nyflag = 1 << AdjNode.NY;
+		let nzflag = 1 << AdjNode.NZ;
+		let xzface = pxflag|nxflag|pzflag|nzflag;
+		let xyface = pxflag|pyflag|nxflag|nyflag;
+		let yzface = pyflag|nyflag|pzflag|nzflag;
+		let e0 = pyflag|nzflag|pxflag|nxflag;
+		let e1 = pyflag|nxflag|pzflag|nzflag;
+		let e11 = pyflag|nyflag|pxflag|pzflag;
+		/**
+		 * 
+		 *         
+		 *     7-----e6-----6
+		 *    /            /|
+		 *   e7          e5 |
+		 *  /  e11       / e10
+		 * 4-----e4-----5   |
+		 * |            |   |
+		 * |    3     e2|   2
+		 * e8          e9  / 
+		 * |  e3        | e1
+		 * |            |/
+		 * 0-----e0-----1 
+		 * 
+		 * 
+		 */
 
+		let netsDict = this.surfacenet;
 		let nets = this.dbgSurfaceNet;
+		let data = this.data;
 		let n = nets.length;
 		for (let i = 0; i < n; i++) {
 			let cn = nets[i];
-			switch (cn.linkeNodeNum) {
-				case 3:
-					break;
-				case 4: {
-					let v0: number[];
-					let v1: number[];
-					let v2: number[];
-					let v3: number[];
-					// 临时计算一个错误的法线
-					d1.x = v2[0] - v1[0];
-					d1.y = v2[1] - v1[1];
-					d1.z = v2[2] - v1[2];
-					d2.x = v3[0] - v1[0];
-					d2.y = v3[1] - v1[1];
-					d2.z = v3[2] - v1[2];
-					Vector3.cross(d2, d1, norm);
-					vertex.push(v1[0], v1[1], v1[2], norm.x, norm.y, norm.z, 0, 0);
-					vertex.push(v2[0], v2[1], v2[2], norm.x, norm.y, norm.z, 0, 0);
-					vertex.push(v3[0], v3[1], v3[2], norm.x, norm.y, norm.z, 0, 0);
+			let cx = cn.posx;
+			let cy = cn.posy;
+			let cz = cn.posz;
+			let vid = cn.voxID;
 
-					vertex.push(cv[0], cv[1], cv[2], norm.x, norm.y, norm.z, 0, 0)
+			// 根据相邻点来构造三角形
+			let vpx: SurfaceNetNode | null = null;
+			let vpy: SurfaceNetNode | null = null;
+			let vpz: SurfaceNetNode | null = null;
+			let vnx: SurfaceNetNode | null = null;
+			let vny: SurfaceNetNode | null = null;
+			let vnz: SurfaceNetNode | null = null;
+			if ((cn.linkInfo & pxflag) != 0) vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
+			if ((cn.linkInfo & pyflag) != 0) vpy = netsDict[vid + disty];
+			if ((cn.linkInfo & pzflag) != 0) vpz = netsDict[vid + distz];
+			if ((cn.linkInfo & nxflag) != 0) vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
+			if ((cn.linkInfo & nyflag) != 0) vny = netsDict[vid - disty];
+			if ((cn.linkInfo & nzflag) != 0) vnz = netsDict[vid - distz];
 
-					vn += vnum;
-					totalvn += vnum;
-					if (vn > 60 * 1024) {
-						vn = 0;
-						let vert = new Float32Array(vertex);
-						let idx = new Uint16Array(index);
-						ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
-						vertex.length = 0;
-						index.length = 0;
+			switch(cn.linkInfo){
+				case xzface:
+					// 纯平面
+					if (vpx && vpz) {
+						//xz平面
+						d1.x = vpz.posx - cx;
+						d1.y = vpz.posy - cy;
+						d1.z = vpz.posz - cz;
+						d2.x = vpx.posx - cx;
+						d2.y = vpx.posy - cy;
+						d2.z = vpx.posz - cz;
+		
+						if (data[vid + disty] > 0) {
+							//如果上面是实心
+							Vector3.cross(d2, d1, norm);
+						} else {
+							//如果下面是实心
+							Vector3.cross(d1, d2, norm);
+						}
+		
+						vertex.push(cx, cy, cz, norm.x, norm.y, norm.z, 0, 0);
+						vertex.push(vpx.posx, vpx.posy, vpx.posz, norm.x, norm.y, norm.z, 0, 0);
+						vertex.push(vpz.posx, vpz.posy, vpz.posz, norm.x, norm.y, norm.z, 0, 0);
+		
+						index.push(vn,vn+1,vn+2);
+		
+						totalvn += 3;
+						vn += 3;
 					}
-				}
+					if(vnx&&vnz){
+
+					}
+				break;
+				case e11:
+					if(vpx&&vpz&&vpy&&vny){
+						console.log(cn.linkInfoStr);
+					}
 					break;
-				case 5:
-					break;
-				case 6:
-					break;
+			}
+
+
+			if (vpx && vpy) {
+				//xy平面
+			}
+			if (vpy && vpz) {
+				//yz平面
+			}
+
+			if (vn > 60 * 1024) {
+				vn = 0;
+				let vert = new Float32Array(vertex);
+				let idx = new Uint16Array(index);
+				ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
+				vertex.length = 0;
+				index.length = 0;
 			}
 		}
 
@@ -432,6 +628,8 @@ export class SurfaceNetSmoother {
 			let idx = new Uint16Array(index);
 			ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
 		}
+		console.log('totalVertex=', totalvn);
+
 		return ret;
 	}
 }

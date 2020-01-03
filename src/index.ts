@@ -84,11 +84,11 @@ if (true) {
 		}
 	}
 	*/
-	for (let z = 2; z < 50; z++) {
-		for (let y = 2; y < 50; y++) {
-			for (let x = 2; x < 50; x++) {
+	for (let z = 2; z < 5; z++) {
+		for (let y = 2; y < 5; y++) {
+			for (let x = 2; x < 5; x++) {
 				data.data[x + y * distY + z * distZ] = 1;
-				if (z == 49 ) {
+				if (z == 4 ) {
 					data.data[x + y * distY + z * distZ] = 1+Math.random();
 				}
 			}
@@ -99,7 +99,7 @@ if (true) {
 
 let m2 = new SurfaceNetSmoother();
 m2.createSurfaceNet(data.data, data.dims);
-//m2.relaxSurfaceNet(1);
+m2.relaxSurfaceNet(1);
 
 let mesh1 = MarchingCubes(data.data, data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
@@ -111,10 +111,12 @@ let grid = new GridSurface(10, null, null);
 grid.addToScene(scene);
 
 let meshes = polyToTriMesh(mesh1.vertices, mesh1.faces);
+meshes = m2.toMeshes();
+
 meshes.forEach(mesh => {
 	let cmesh = new MeshSprite3D(mesh);
 	var mtl = new BlinnPhongMaterial();
-	//mtl.cull = RenderState.CULL_NONE;
+	mtl.cull = RenderState.CULL_NONE;
 	mtl.blend = RenderState.BLEND_ENABLE_ALL;
 	mtl.blendSrc = RenderState.BLENDPARAM_SRC_ALPHA;
 	mtl.blendDst = RenderState.BLENDPARAM_ONE_MINUS_SRC_ALPHA;
