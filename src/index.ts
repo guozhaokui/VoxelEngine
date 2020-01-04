@@ -17,6 +17,7 @@ import { Quaternion } from "laya/d3/math/Quaternion";
 import { MarchingCubes } from "./MarchingCubes";
 import { SurfaceNetSmoother } from "./SurfaceNetSmoother";
 import { RenderState } from "laya/d3/core/material/RenderState";
+import { delay } from "./Async";
 
 //
 let scene: Scene3D;
@@ -42,17 +43,15 @@ var mat = directionLight.transform.worldMatrix;
 mat.setForward(new Vector3(-1.0, -1.0, 1.0));
 directionLight.transform.worldMatrix = mat;
 
+let grid = new GridSurface(10, null, null);
+//grid.showAxis=false;
+grid.addToScene(scene);
 
-
-function getdata(x: number, y: number, z: number): number {
-	return Math.random() > 0.5 ? 1 : 0;
-	return 0;
-}
 
 //let mesh = new MeshSprite3D(createVoxMesh({get:getdata},10,10,10,10,10,10,new Vector3(0,0,0), new Vector3(10,10,10)));
 //scene.addChild(mesh);
 //mesh.transform.localPosition = new Vector3(-5,-5,-5)
-
+/*
 let sidelen = 44;
 //let data = SphereData(-2,2,sidelen);
 let data = SphereData(-2, 2, sidelen);
@@ -60,73 +59,166 @@ let data = SphereData(-2, 2, sidelen);
 let isos = new SurfaceNets();
 //let mesh1 = isos.tomesh(data.data,data.dims);
 //test data
-if (true) {
-	let s = 500;
+*/
+
+class voxdata{
+	size:int=1;
+	data:Float32Array;
+	dims:number[];
+	private distZ:number;
+	private distY:number;
+	private cx=0;
+	private cy=0;
+	private cz=0;
+	constructor(s:int){
+		this.size=s;
+		this.data = new Float32Array(s**3);
+		this.dims=[s,s,s];
+		this.distZ=s;
+		this.distY=s*s;
+	}
+
+	set(x:int,y:int,z:int){
+		this.data[x+y*this.distY+z*this.distZ]=1;
+	}
+
+	to(x:int,y:int,z:int,b:boolean){
+		this.cx=x;
+		this.cy=y;
+		this.cz=z;
+		b&&this.s();
+		return this;
+	}
+	s(){
+		this.set(this.cx,this.cy,this.cz);
+	}
+	px(){ this.cx++; this.s(); return this;}
+	py(){ this.cy++; this.s(); return this;}
+	pz(){ this.cz++; this.s(); return this;}
+
+	fill(v:number){
+		this.data.fill(v);
+	}
+}
+
+async function main() {
+	let s = 150;
+	let vox = new voxdata(s);
 	let distZ = s;
 	let distY = s * s;
-	data.data = new Float32Array(s ** 3);
-	data.data.fill(-1);
-	data.dims = [s, s, s];
+	let data = vox.data;
+	vox.fill(-1);
 
-	/*
+	// 球
 	let c=(s/2)|0
 	for(let z=0; z<s; z++){
 		for(let y=0; y<s; y++){
 			for(let x=0; x<s; x++){
-				let dx = x-c; dx/=c;
-				let dy = y-c; dy/=c;
-				let dz = z-c; dz/=c;
+				let dx = x-c; dx/=21;
+				let dy = y-c; dy/=21;
+				let dz = z-c; dz/=21;
 				let r = Math.sqrt(dx*dx+dy*dy+dz*dz)-1;
 				if(r<0)r=1;
-				else r=0;
-				data.data[x+y*distY+z*distZ] = r;
+				else r=-1;
+				data[x+y*distY+z*distZ] = r;
 			}
 		}
 	}
-	*/
+	// 盒子
+	/*
 	for (let z = 2; z < 40; z++) {
 		for (let y = 2; y < 40; y++) {
 			for (let x = 2; x < 40; x++) {
-				data.data[x + y * distY + z * distZ] = 1;
-				if (z == 39 ) {
-					data.data[x + y * distY + z * distZ] = 1+Math.random();
+				vox.data[x + y * distY + z * distZ] = 1;
+				if (z == 39) {
+					data[x + y * distY + z * distZ] = 1 + Math.random();
 				}
 			}
 		}
 	}
-}
-//test data end
+	*/
 
-let m2 = new SurfaceNetSmoother();
-m2.createSurfaceNet(data.data, data.dims);
-console.time('relaxnet');
-m2.relaxSurfaceNet(200);
-console.timeEnd('relaxnet');
+	// 测试形状
+	//test data end
+	let ss = 16;
+	switch(ss){
+		case 1:
+			vox.to(2,2,5,true).px().px();
+			vox.to(2,2,4,true).px().px();
+			vox.to(2,3,4,true).px().px();
+		break;
+		case 2:
+			vox.to(2,2,2,true).pz().pz();
+			vox.to(3,2,2,true).pz().pz();
+			vox.to(3,3,2,true).pz().pz();
+		break;
+		case 3:
+			vox.to(3,2,2,true).py().py();
+			vox.to(2,2,3,true).py().py();
+			vox.to(3,2,3,true).py().py();
+		break;
+		case 4:
+			vox.to(3,2,2,true).py().py();
+			vox.to(3,2,3,true).py().py();
+			vox.to(4,2,3,true).py().py();
+		break;
+		case 5:
+			vox.to(3,2,2,true).py().py();
+			vox.to(4,2,3,true).py().py();
+		break;
+		case 6:
+			vox.to(2,2,2,true);
+			vox.to(3,2,2,true).py();
+			vox.to(4,2,2,true).py().py();
+			vox.to(3,2,3,true);
+			vox.to(4,2,3,true).py();
+			vox.to(4,2,4,true);
+		break;
+	}
 
-//let mesh1 = MarchingCubes(data.data, data.dims);
-//let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
 
-let gridq = new Quaternion();
-Quaternion.createFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 4, gridq);
-let grid = new GridSurface(10, null, null);
-//grid.showAxis=false;
-grid.addToScene(scene);
+	let m2 = new SurfaceNetSmoother();
+	m2.createSurfaceNet(vox.data, vox.dims);
+	//m2.relaxSurfaceNet(1600);
 
-//let meshes = polyToTriMesh(mesh1.vertices, mesh1.faces);
-let meshes = m2.toMeshes();
-
-meshes.forEach(mesh => {
-	let cmesh = new MeshSprite3D(mesh);
 	var mtl = new BlinnPhongMaterial();
 	mtl.cull = RenderState.CULL_NONE;
 	mtl.blend = RenderState.BLEND_ENABLE_ALL;
 	mtl.blendSrc = RenderState.BLENDPARAM_SRC_ALPHA;
 	mtl.blendDst = RenderState.BLENDPARAM_ONE_MINUS_SRC_ALPHA;
 	mtl.depthTest = RenderState.DEPTHTEST_LESS;
-	cmesh.meshRenderer.sharedMaterial = mtl;
 
-	scene.addChild(cmesh);
-	cmesh.transform.localPosition = new Vector3(-10, 0, 0)
-});
+	if(true){
+		let rmeshes:MeshSprite3D[]=[];
+		for(let i=0; i<1000; i++){
+			m2.relaxSurfaceNet(1);
+			let meshes = m2.toMeshes();
+			meshes.forEach(mesh => {
+				let cmesh = new MeshSprite3D(mesh);
+				cmesh.meshRenderer.sharedMaterial = mtl;
+				rmeshes.push(cmesh);
+				scene.addChild(cmesh);
+				let c = cmesh.meshRenderer.bounds.getCenter();
+				cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
+			});
 
+			await delay(200);
+			rmeshes.forEach( m=>{
+				scene.removeChild(m);
+				m.destroy();
+			});
+			rmeshes.length=0;
+		}
+	}
 
+	let meshes = m2.toMeshes();
+	meshes.forEach(mesh => {
+		let cmesh = new MeshSprite3D(mesh);
+		cmesh.meshRenderer.sharedMaterial = mtl;
+		scene.addChild(cmesh);
+		let c = cmesh.meshRenderer.bounds.getCenter();
+		cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
+	});
+}
+
+main();
