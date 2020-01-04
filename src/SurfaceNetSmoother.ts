@@ -159,12 +159,10 @@ class SurfaceNetNode {
 	linkeNodeNum = 0; 	// 连接的节点数。上面只记录的下一个，连接的要把指向自己的也算上。每个最多有6个：两个角的顶角处
 	// 以后放到 adjinfo 中
 
-	value = 0;			// 缺省为0，调整后从-1到1之间变化
 	//nextNodes:SurfaceNets[]=[];
 
 	resetTarget() {
 		this.tmpx = this.tmpy = this.tmpz = 0;
-		this.value = 0;
 	}
 
 	step(k: number) {
@@ -442,10 +440,8 @@ export class SurfaceNetSmoother {
 	 * @param it  次数
 	 */
 	public relaxSurfaceNet(it: number) {
-		let data = this.data;
-		let net = this.surfacenet;
+		let netDict = this.surfacenet;
 		let k = this.relaxSpeed;
-		let n = net.length;
 		let dist = this.dist;
 		let distx = dist[0];
 		let disty = dist[1];
@@ -453,50 +449,42 @@ export class SurfaceNetSmoother {
 		let xflag = 1 << AdjNode.PX;
 		let yflag = 1 << AdjNode.PY;
 		let zflag = 1 << AdjNode.PZ;
+		let nets = this.dbgSurfaceNet;
+		let nn = nets.length;
 
 		for (let i = 0; i < it; i++) {
 			// 清零
-			for (let ni = 0; ni < n; ni++) {
-				let cn = net[ni];
-				cn && cn.resetTarget();
+			for(let ni=0; ni<nn; ni++){
+				nets[ni].resetTarget();
 			}
 			// 互相影响
-			for (let cn of net) {
-				if (!cn) continue;
+			for(let ni=0; ni<nn; ni++){
+				let cn = nets[ni];
 				let cid = cn.voxID;
 				let adjinfo = cn.linkInfo;
 				if (adjinfo & xflag) {
-					let nxn = net[cid + distx];	// TODO 注意这里可能会绕到错误的地方
+					let nxn = netDict[cid + distx];	// TODO 注意这里可能会绕到错误的地方
 					cn.adjbynode(nxn);
 				}
 				if (adjinfo & yflag) {
-					let nyn = net[cid + disty];
+					let nyn = netDict[cid + disty];
 					cn.adjbynode(nyn);
 				}
 				if (adjinfo & zflag) {
-					let nzn = net[cid + distz];
+					let nzn = netDict[cid + distz];
 					cn.adjbynode(nzn);
 				}
 			}
 
 			// 朝目标移动。
-			for (let i = 0; i < n; i++) {
-				let cn = net[i];
-				if (!cn) continue;
+			for(let ni=0; ni<nn; ni++){
+				let cn = nets[ni];
 				let ln = cn.linkeNodeNum;	// 这里除是为了效率
 				cn.tmpx /= ln;
 				cn.tmpy /= ln;
 				cn.tmpz /= ln;
 				cn.step(k);
 			}
-		}
-
-		// 应用到原来的数据上
-		for (let i = 0; i < n; i++) {
-			let cn = net[i];
-			if (!cn) continue;
-
-			//data[cn.voxID] = Math.random();//cn.value;
 		}
 	}
 
@@ -520,17 +508,18 @@ export class SurfaceNetSmoother {
 	}
 
 	private pushVB(vb:number[], v0:SurfaceNetNode, v1:SurfaceNetNode, v2:SurfaceNetNode, norm:Vector3){
-		vb.push(v0.posx,v0.posy,v0.posz, norm.x, norm.y, norm.z, 0, 0);
-		vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z, 0, 0);
-		vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z, 0, 0);
+		vb.push(v0.posx,v0.posy,v0.posz, norm.x, norm.y, norm.z);
+		vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
+		vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
 	}
 
 	toMeshes() {
+		console.time('tomesh');
 		let vertex: number[] = [];
 		let index: number[] = [];
 		let vn = 0;
 		let totalvn = 0;
-		var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,UV");
+		var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL");
 		let norm = new Vector3();
 		let ret: Mesh[] = [];
 		let distx = this.dist[0];
@@ -947,8 +936,8 @@ export class SurfaceNetSmoother {
 			let idx = new Uint16Array(index);
 			ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
 		}
+		console.timeEnd('tomesh');
 		console.log('totalVertex=', totalvn);
-
 		return ret;
 	}
 }

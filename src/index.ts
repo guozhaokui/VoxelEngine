@@ -61,7 +61,7 @@ let isos = new SurfaceNets();
 //let mesh1 = isos.tomesh(data.data,data.dims);
 //test data
 if (true) {
-	let s = 70;
+	let s = 500;
 	let distZ = s;
 	let distY = s * s;
 	data.data = new Float32Array(s ** 3);
@@ -84,11 +84,11 @@ if (true) {
 		}
 	}
 	*/
-	for (let z = 2; z < 5; z++) {
-		for (let y = 2; y < 5; y++) {
-			for (let x = 2; x < 5; x++) {
+	for (let z = 2; z < 40; z++) {
+		for (let y = 2; y < 40; y++) {
+			for (let x = 2; x < 40; x++) {
 				data.data[x + y * distY + z * distZ] = 1;
-				if (z == 4 ) {
+				if (z == 39 ) {
 					data.data[x + y * distY + z * distZ] = 1+Math.random();
 				}
 			}
@@ -99,9 +99,11 @@ if (true) {
 
 let m2 = new SurfaceNetSmoother();
 m2.createSurfaceNet(data.data, data.dims);
-m2.relaxSurfaceNet(1);
+console.time('relaxnet');
+m2.relaxSurfaceNet(200);
+console.timeEnd('relaxnet');
 
-let mesh1 = MarchingCubes(data.data, data.dims);
+//let mesh1 = MarchingCubes(data.data, data.dims);
 //let mesh1 = isos.tomesh(new Float32Array([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),[4,1,4]);
 
 let gridq = new Quaternion();
@@ -110,8 +112,8 @@ let grid = new GridSurface(10, null, null);
 //grid.showAxis=false;
 grid.addToScene(scene);
 
-let meshes = polyToTriMesh(mesh1.vertices, mesh1.faces);
-meshes = m2.toMeshes();
+//let meshes = polyToTriMesh(mesh1.vertices, mesh1.faces);
+let meshes = m2.toMeshes();
 
 meshes.forEach(mesh => {
 	let cmesh = new MeshSprite3D(mesh);
