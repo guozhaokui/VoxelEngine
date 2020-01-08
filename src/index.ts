@@ -78,8 +78,8 @@ class voxdata{
 		this.distY=s*s;
 	}
 
-	set(x:int,y:int,z:int){
-		this.data[x+y*this.distY+z*this.distZ]=1;
+	set(x:int,y:int,z:int,v=1){
+		this.data[x+y*this.distY+z*this.distZ]=v;
 	}
 
 	to(x:int,y:int,z:int,b:boolean){
@@ -96,6 +96,16 @@ class voxdata{
 	py(){ this.cy++; this.s(); return this;}
 	pz(){ this.cz++; this.s(); return this;}
 
+	fillbox(x0:int,y0:int,z0:int, x1:int,y1:int,z1:int, v=1){
+		for(let y=y0; y<y1; y++){
+			for(let z=z0; z<z1; z++){
+				for(let x=x0; x<x1;x++){
+					this.set(x,y,z,v);
+				}
+			}
+		}
+	}
+
 	fill(v:number){
 		this.data.fill(v);
 	}
@@ -110,6 +120,7 @@ async function main() {
 	vox.fill(-1);
 
 	// 球
+	///*
 	let c=(s/2)|0
 	for(let z=0; z<s; z++){
 		for(let y=0; y<s; y++){
@@ -124,6 +135,7 @@ async function main() {
 			}
 		}
 	}
+	//*/
 	// 盒子
 	/*
 	for (let z = 2; z < 40; z++) {
@@ -140,8 +152,11 @@ async function main() {
 
 	// 测试形状
 	//test data end
-	let ss = 16;
+	let ss = 81;
 	switch(ss){
+		case 0:
+			vox.to(2,2,2,true);
+			break;
 		case 1:
 			vox.to(2,2,5,true).px().px();
 			vox.to(2,2,4,true).px().px();
@@ -169,6 +184,19 @@ async function main() {
 		case 6:
 			vox.to(2,2,2,true);
 			vox.to(3,2,2,true).py();
+			vox.to(3,2,3,true);
+			break;
+		case 7:
+			vox.fillbox(2,2,2,4,4,4,1);
+			vox.fillbox(3,3,3,4,4,4,-1);
+			break;
+		case 8:
+			vox.fillbox(2,2,2,4,4,4,1);
+			vox.fillbox(3,2,2,4,3,3,-1);
+			break;
+		case 9:
+			vox.to(2,2,2,true);
+			vox.to(3,2,2,true).py();
 			vox.to(4,2,2,true).py().py();
 			vox.to(3,2,3,true);
 			vox.to(4,2,3,true).py();
@@ -179,7 +207,7 @@ async function main() {
 
 	let m2 = new SurfaceNetSmoother();
 	m2.createSurfaceNet(vox.data, vox.dims);
-	//m2.relaxSurfaceNet(1600);
+	//m2.relaxSurfaceNet(12);
 
 	var mtl = new BlinnPhongMaterial();
 	mtl.cull = RenderState.CULL_NONE;
@@ -190,7 +218,7 @@ async function main() {
 
 	if(true){
 		let rmeshes:MeshSprite3D[]=[];
-		for(let i=0; i<1000; i++){
+		for(let i=0; i<1; i++){
 			m2.relaxSurfaceNet(1);
 			let meshes = m2.toMeshes();
 			meshes.forEach(mesh => {

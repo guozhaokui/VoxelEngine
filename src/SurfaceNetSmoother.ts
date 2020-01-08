@@ -3,6 +3,9 @@ import { VertexMesh } from "laya/d3/graphics/Vertex/VertexMesh";
 import { Vector3 } from "laya/d3/math/Vector3";
 import { Mesh } from "laya/d3/resource/models/Mesh";
 import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
+import { Camera } from "laya/d3/core/Camera";
+import { Ray } from "laya/d3/math/Ray";
+import { Vector2 } from "laya/d3/math/Vector2";
 
 /**
  * 取实心的地方为-1，空心的为1，则对于边界处的空格子，其中心的值为0，移动范围是 (-1,1)
@@ -27,20 +30,6 @@ import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
  */
 
 /**
- *    y
- *    |
- *    |_______x
- *   /
- *  /
- * z
- */
-var neighborDir = [
-	[-1, 1, 1], [-1, 1, 0], [-1, 1, -1], [0, 1, 1], [0, 1, 0], [0, 1, -1], [1, 1, 1], [1, 1, 0], [1, 1, -1],	// 最上层，沿着x切
-	[-1, 0, 1], [-1, 0, 0], [-1, 0, -1], [0, 0, 1],/*[0,0,0],*/[0, 0, -1], [1, 0, 1], [1, 0, 0], [1, 0, -1],
-	[-1, -1, 1], [-1, -1, 0], [-1, -1, -1], [0, -1, 1], [0, -1, 0], [0, -1, -1], [1, -1, 1], [1, -1, 0], [1, -1, -1],
-];
-
-/**
  *           py   nz
  *           2   5
  *           |  /
@@ -60,84 +49,62 @@ const enum AdjNode {
 	PZ = 0,
 	NX = 3,
 	NY = 4,
-	NZ = 5
+	NZ = 5,
+	NN = 6
 }
 
+const enum FACEIDSTARTPOS{
+	v=13		//6+7
+}
+const enum FaceID{
+	PXPY=1<<FACEIDSTARTPOS.v,	// px,py
+	PYNX=2<<FACEIDSTARTPOS.v,	// py,nx
+	NXNY=4<<FACEIDSTARTPOS.v,	
+	NYPX=8<<FACEIDSTARTPOS.v,
+
+	PZPX=16<<FACEIDSTARTPOS.v,
+	PXNZ=32<<FACEIDSTARTPOS.v,
+	NZNX=64<<FACEIDSTARTPOS.v,
+	NXPZ=128<<FACEIDSTARTPOS.v,
+
+	PZPY=256<<FACEIDSTARTPOS.v,
+	PYNZ=512<<FACEIDSTARTPOS.v,
+	NZNY=1024<<FACEIDSTARTPOS.v,
+	NYPZ=2048<<FACEIDSTARTPOS.v,
+}
+
+
 /**
- * 每种边界情况对应的三角形列表
- * <3个邻点都不组成三角形
- * 按照顺时针朝外试试
- * 当前点都在中间，不写了，所以每个三角形只记两个点
+ *    y
+ *    |
+ *    |_______x
+ *   /
+ *  /
+ * z
  */
-const TriTrable = [
-	[],//0		<3个都不能组成
-	[],//1
-	[],//10
-	[],//11
-	[],//100
-	[],//101
-	[],//110
-	//111
-	[],//1000
-	[],//1001
-	[],//1010
-	//1011
-	[],//1100
-	//1101
-	//1110
-	//1111
-	[],//10000
-	[],//10001
-	[],//10010
-	//10011
-	[],//10100
-	//10101
-	//10110
-	//10111
-	[],//11000
-	//11001
-	//11010
-	//11011
-	//11100
-	//11101
-	//11110
-	//11111
-	[],//100000
-	[],//100001
-	[],//100010
-	//100011
-	[],//100100
-	//100101
-	//100110
-	//100111
-	[],//101000
-	//101001
-	//101010
-	//101011	0,1,3,5 平面十字
-	//101100
-	//101101		
-	//101110
-	//101111
-	[],//110000
-	//110001
-	//110010
-	//110011
-	//110100
-	//110101
-	//110110
-	//110111
-	//111000
-	//111001
-	//111010
-	//111011
-	//111100
-	//111101
-	//111110
-	[]//111111
+var neighborDir = [
+	[-1, 1, 1], [-1, 1, 0], [-1, 1, -1], [0, 1, 1], [0, 1, 0], [0, 1, -1], [1, 1, 1], [1, 1, 0], [1, 1, -1],	// 最上层，沿着x切
+	[-1, 0, 1], [-1, 0, 0], [-1, 0, -1], [0, 0, 1],/*[0,0,0],*/[0, 0, -1], [1, 0, 1], [1, 0, 0], [1, 0, -1],
+	[-1, -1, 1], [-1, -1, 0], [-1, -1, -1], [0, -1, 1], [0, -1, 0], [0, -1, -1], [1, -1, 1], [1, -1, 0], [1, -1, -1],
+];
+
+var neighborFlag = [
+	0, 0, 0, 0, 1 << AdjNode.PY, 0, 0, 0, 0,
+	0, 1 << AdjNode.NX, 0, 1 << AdjNode.PZ,/*0,*/1 << AdjNode.NZ, 0, 1 << AdjNode.PX, 0,
+	0, 0, 0, 0, 1 << AdjNode.NY, 0, 0, 0, 0
 ];
 
 
-class SurfaceNetNode {
+const InvDir = [];
+InvDir[AdjNode.PX] = AdjNode.NX;
+InvDir[AdjNode.PY] = AdjNode.NY;
+InvDir[AdjNode.PZ] = AdjNode.NZ;
+InvDir[AdjNode.NX] = AdjNode.PX;
+InvDir[AdjNode.NY] = AdjNode.PY;
+InvDir[AdjNode.NZ] = AdjNode.PZ;
+
+
+export class SurfaceNetNode {
 	voxID: int = 0;		// 最大允许1024**3。能反向得到xyz
 	/** 调整后的位置 优化的时候可以用byte表示相对调整位置*/
 	posx: number;
@@ -149,9 +116,10 @@ class SurfaceNetNode {
 	tmpz = 0;
 
 	// 相邻信息
-	adjInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有实心voxel。这些也为计算法线提供信息。 TODO 可以不用
+	linkInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有表面节点。
+	// 中间7个表示某个方向有数据，用来提供法线信息。第7个仅表示其他方向（斜着的），因为不关心斜着的方向，但是又要用来判断边界。
+	// 高12个bit表示哪个方向已经建立三角形了，避免重复创建。每个平面四个
 
-	linkInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有表面节点
 	// 每次处理的时候会把自己加到对方，同时把对方加到自己。 用id是一个位置，比对象更容易维护.
 	// 一次处理三个也是为了提高效率
 
@@ -185,14 +153,18 @@ class SurfaceNetNode {
 		n.tmpz += this.posz;
 	}
 
-	get linkInfoStr(){
-		return ((this.linkInfo&(1<<AdjNode.PX))?'PX ':'')+
-		((this.linkInfo&(1<<AdjNode.PY))?'PY ':'')+
-		((this.linkInfo&(1<<AdjNode.PZ))?'PZ ':'')+
-		((this.linkInfo&(1<<AdjNode.NX))?'NX ':'')+
-		((this.linkInfo&(1<<AdjNode.NY))?'NY ':'')+
-		((this.linkInfo&(1<<AdjNode.NZ))?'NZ ':'');
+	get linkInfoStr() {
+		return ((this.linkInfo & (1 << AdjNode.PX)) ? 'PX ' : '') +
+			((this.linkInfo & (1 << AdjNode.PY)) ? 'PY ' : '') +
+			((this.linkInfo & (1 << AdjNode.PZ)) ? 'PZ ' : '') +
+			((this.linkInfo & (1 << AdjNode.NX)) ? 'NX ' : '') +
+			((this.linkInfo & (1 << AdjNode.NY)) ? 'NY ' : '') +
+			((this.linkInfo & (1 << AdjNode.NZ)) ? 'NZ ' : '');
 	}
+}
+
+function raysele() {
+
 }
 
 let int1 = new Uint32Array(2);
@@ -214,6 +186,9 @@ export class SurfaceNetSmoother {
 	private neighbors: number[] = [];
 
 	//for debug
+	private camRay: Ray = new Ray(new Vector3(), new Vector3());
+	private mousePt = new Vector2();
+
 	private getData(x: int, y: int, z: int) {
 		let d = this.data;
 		let dist = this.dist;
@@ -262,6 +237,26 @@ export class SurfaceNetSmoother {
 
 		);
 	}
+
+	// 临时，没有优化
+	private selectNode(camera: Camera, mx: number, my: number, dist: number): SurfaceNetSmoother | null {
+		let ray = this.camRay;
+		let mouse = this.mousePt;
+		mouse.x = mx;
+		mouse.y = my;
+		camera.viewportPointToRay(mouse, ray);
+		let rayst = ray.origin;
+		let raydir = ray.direction;
+
+		let nets = this.dbgSurfaceNet;
+		let nn = nets.length;
+		for (let ni = 0; ni < nn; ni++) {
+			let cn = nets[ni];
+			cn.posx;
+		}
+
+		return null;
+	}
 	//for debug end
 
 	private getAdjInfo(id: int) {
@@ -287,7 +282,8 @@ export class SurfaceNetSmoother {
 		return ret;
 	}
 
-	private isBorder(id: int): boolean {
+	// 返回实心的位置信息
+	private isBorder(id: int): number {
 		let data = this.data;
 		let nb = this.neighbors;
 		//if( x==0 || y==0 || z==0 || x==dims[0]-1 || y==dims[1]-1 || z==dims[2]-1 )
@@ -295,6 +291,7 @@ export class SurfaceNetSmoother {
 
 		// 注意现在假设空的地方为0。 注意不要位置浸染
 		// 兼容 0空 1实   -1空 1实
+		/*
 		return data[id] <= 0 && (
 			data[id + nb[0]] > 0 ||
 			data[id + nb[1]] > 0 ||
@@ -322,6 +319,37 @@ export class SurfaceNetSmoother {
 			data[id + nb[23]] > 0 ||
 			data[id + nb[24]] > 0 ||
 			data[id + nb[25]] > 0);
+			*/
+		// 不考虑斜着的数据
+		if (data[id] > 0) return 0;
+		let ret = 0;
+		data[id + nb[0]] > 0 && (ret |= neighborFlag[0]);
+		data[id + nb[1]] > 0 && (ret |= neighborFlag[1]);
+		data[id + nb[2]] > 0 && (ret |= neighborFlag[2]);
+		data[id + nb[3]] > 0 && (ret |= neighborFlag[3]);
+		data[id + nb[4]] > 0 && (ret |= neighborFlag[4]);
+		data[id + nb[5]] > 0 && (ret |= neighborFlag[5]);
+		data[id + nb[6]] > 0 && (ret |= neighborFlag[6]);
+		data[id + nb[7]] > 0 && (ret |= neighborFlag[7]);
+		data[id + nb[8]] > 0 && (ret |= neighborFlag[8]);
+		data[id + nb[9]] > 0 && (ret |= neighborFlag[9]);
+		data[id + nb[10]] > 0 && (ret |= neighborFlag[10]);
+		data[id + nb[11]] > 0 && (ret |= neighborFlag[11]);
+		data[id + nb[12]] > 0 && (ret |= neighborFlag[12]);
+		data[id + nb[13]] > 0 && (ret |= neighborFlag[13]);
+		data[id + nb[14]] > 0 && (ret |= neighborFlag[14]);
+		data[id + nb[15]] > 0 && (ret |= neighborFlag[15]);
+		data[id + nb[16]] > 0 && (ret |= neighborFlag[16]);
+		data[id + nb[17]] > 0 && (ret |= neighborFlag[17]);
+		data[id + nb[18]] > 0 && (ret |= neighborFlag[18]);
+		data[id + nb[19]] > 0 && (ret |= neighborFlag[19]);
+		data[id + nb[20]] > 0 && (ret |= neighborFlag[20]);
+		data[id + nb[21]] > 0 && (ret |= neighborFlag[21]);
+		data[id + nb[22]] > 0 && (ret |= neighborFlag[22]);
+		data[id + nb[23]] > 0 && (ret |= neighborFlag[23]);
+		data[id + nb[24]] > 0 && (ret |= neighborFlag[24]);
+		data[id + nb[25]] > 0 && (ret |= neighborFlag[25]);
+		return ret;
 	}
 
 	/**
@@ -351,6 +379,8 @@ export class SurfaceNetSmoother {
 		for (let i = 0; i < 26; i++) {
 			let ndir = neighborDir[i];
 			neighbors[i] = ndir[0] + ndir[1] * dy + ndir[2] * dz;
+			if (neighborFlag[i] == 0) neighborFlag[i] = 1 << AdjNode.NN;	// 只是表示有
+			neighborFlag[i] = neighborFlag[i] << 6;
 		}
 
 		let nets = this.surfacenet;
@@ -368,12 +398,14 @@ export class SurfaceNetSmoother {
 				nid = y * dy + z * dz;
 				nid += 1;
 				for (let x = 1; x < maxx; x++) {
-					if (this.isBorder(nid)) {
+					let nf = this.isBorder(nid);
+					if (nf != 0) {
 						let n = new SurfaceNetNode();
 						n.voxID = nid;
 						n.posx = x;
 						n.posy = y;
 						n.posz = z;
+						n.linkInfo |= nf;
 						nets[nid] = n;
 						nodenum++;
 					}
@@ -456,11 +488,11 @@ export class SurfaceNetSmoother {
 
 		for (let i = 0; i < it; i++) {
 			// 清零
-			for(let ni=0; ni<nn; ni++){
+			for (let ni = 0; ni < nn; ni++) {
 				nets[ni].resetTarget();
 			}
 			// 互相影响
-			for(let ni=0; ni<nn; ni++){
+			for (let ni = 0; ni < nn; ni++) {
 				let cn = nets[ni];
 				let cid = cn.voxID;
 				let adjinfo = cn.linkInfo;
@@ -479,7 +511,7 @@ export class SurfaceNetSmoother {
 			}
 
 			// 朝目标移动。
-			for(let ni=0; ni<nn; ni++){
+			for (let ni = 0; ni < nn; ni++) {
 				let cn = nets[ni];
 				let voxid = cn.voxID;
 				let ln = cn.linkeNodeNum;	// 这里除是为了效率
@@ -491,18 +523,18 @@ export class SurfaceNetSmoother {
 				let oy = int1[1] = voxid / dist[1];	// y = id/(xsize*zsize)
 				let oz = int1[0] = voxid / dims[0] % dims[2];	// z = id/xsize%zsize. x部分变成小数被丢掉，剩下的是 y*zsize+z
 				cn.step(k);
-				if(cn.posx<ox-0.5) cn.posx=ox-0.5;
-				if(cn.posx>ox+0.5) cn.posx=ox+0.5;
-				if(cn.posy<oy-0.5) cn.posy=oy-0.5;
-				if(cn.posy>oy+0.5) cn.posy=oy+0.5;
-				if(cn.posz<oz-0.5) cn.posz=oz-0.5;
-				if(cn.posz>oz+0.5) cn.posz=oz+0.5;
+				if (cn.posx < ox - 0.5) cn.posx = ox - 0.5;
+				if (cn.posx > ox + 0.5) cn.posx = ox + 0.5;
+				if (cn.posy < oy - 0.5) cn.posy = oy - 0.5;
+				if (cn.posy > oy + 0.5) cn.posy = oy + 0.5;
+				if (cn.posz < oz - 0.5) cn.posz = oz - 0.5;
+				if (cn.posz > oz + 0.5) cn.posz = oz + 0.5;
 			}
 		}
 		console.timeEnd('relaxnet');
 	}
 
-	private calcNormal(x0:number,y0:number, z0:number, v1:SurfaceNetNode, v2:SurfaceNetNode, order12:boolean, norm:Vector3){
+	private calcNormal(x0: number, y0: number, z0: number, v1: SurfaceNetNode, v2: SurfaceNetNode, order12: boolean, norm: Vector3) {
 		let d1 = SurfaceNetSmoother.d1;
 		let d2 = SurfaceNetSmoother.d2;
 		d1.x = v1.posx - x0;
@@ -519,8 +551,8 @@ export class SurfaceNetSmoother {
 		}
 	}
 
-	private pushVB(vb:number[], v0:SurfaceNetNode, v1:SurfaceNetNode, v2:SurfaceNetNode, norm:Vector3){
-		vb.push(v0.posx,v0.posy,v0.posz, norm.x, norm.y, norm.z);
+	private pushVB(vb: number[], v0: SurfaceNetNode, v1: SurfaceNetNode, v2: SurfaceNetNode, norm: Vector3) {
+		vb.push(v0.posx, v0.posy, v0.posz, norm.x, norm.y, norm.z);
 		vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
 		vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
 	}
@@ -543,38 +575,292 @@ export class SurfaceNetSmoother {
 		let nxflag = 1 << AdjNode.NX;
 		let nyflag = 1 << AdjNode.NY;
 		let nzflag = 1 << AdjNode.NZ;
-		
-		let xzface = pxflag|nxflag|pzflag|nzflag;
-		let xyface = pxflag|pyflag|nxflag|nyflag;
-		let yzface = pyflag|nyflag|pzflag|nzflag;
-		let e0 = pyflag|nzflag|pxflag|nxflag;
-		let e1 = pyflag|nxflag|pzflag|nzflag;
-		let e2 =  pxflag|nxflag|pyflag|pzflag;
-		let e3 = pzflag|nzflag|pyflag|pxflag;
-		let e4 = pxflag|nxflag|nzflag|nyflag;
-		let e5 = nxflag|nyflag|pzflag|nzflag;
-		let e6 = pxflag|nxflag|pzflag|nyflag;
-		let e7 = pxflag|nyflag|pzflag|nzflag;
-		let e8 = pxflag|nzflag|pyflag|nyflag;
-		let e9 = nxflag|nzflag|pyflag|nyflag;
-		let e10 = nxflag|pzflag|pyflag|nyflag;
-		let e11 = pyflag|nyflag|pxflag|pzflag;
-		let v0f = pxflag|pyflag|nzflag;
-		let v1f = nxflag|pyflag|nzflag;
-		let v2f = nxflag|pyflag|nzflag;
-		let v3f = pxflag|pyflag|pzflag;
-		let v4f = pxflag|nyflag|nzflag;
-		let v5f = nxflag|nyflag|nzflag;
-		let v6f = nxflag|nyflag|pzflag;
-		let v7f = pxflag|nyflag|pzflag;
-		let ve0 = pxflag|pyflag|nyflag|pzflag|nzflag; // 楼梯凹左角
-		let ve1 = nxflag|pyflag|nyflag|pzflag|nzflag; // 楼梯凹右角	 
-		let ve2 = nzflag|pxflag|nxflag|pyflag|nyflag;
-		let ve3 = pzflag|pxflag|nxflag|pyflag|nyflag;
-		let ve4 = nyflag|pxflag|nxflag|pzflag|nzflag;
-		let ve5 = pyflag|pxflag|nxflag|pzflag|nzflag;
 
-		let facevt:SurfaceNetNode[]|null[]=new Array(6);
+		/**
+		 * 
+		 *         
+		 *     7-----e6-----6
+		 *    /            /|
+		 *   e7          e5 |
+		 *  /  e11       / e10
+		 * 4-----e4-----5   |
+		 * |            |   |
+		 * |    3     e2|   2
+		 * e8          e9  / 
+		 * |  e3        | e1
+		 * |            |/
+		 * 0-----e0-----1 
+		 * 
+		 * 
+		 */
+
+		let netsDict = this.surfacenet;
+		let nets = this.dbgSurfaceNet;
+		let data = this.data;
+		let n = nets.length;
+		// 先添加顶点，记录顶点id
+		/*
+		for (let i = 0; i < n; i++) {
+			let cn = nets[i];
+		}
+		*/
+		for (let i = 0; i < n; i++) {
+			let cn = nets[i];
+			let cx = cn.posx;
+			let cy = cn.posy;
+			let cz = cn.posz;
+			let vid = cn.voxID;
+
+			let linkinfo = cn.linkInfo;
+			let bpx = (linkinfo & pxflag) != 0;
+			let bpy = (linkinfo & pyflag) != 0;
+			let bpz = (linkinfo & pzflag) != 0;
+			let bnx = (linkinfo & nxflag) != 0;
+			let bny = (linkinfo & nyflag) != 0;
+			let bnz = (linkinfo & nzflag) != 0;
+
+			let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
+			let vpy = netsDict[vid + disty];
+			let vpz = netsDict[vid + distz];
+			let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
+			let vny = netsDict[vid - disty];
+			let vnz = netsDict[vid - distz];
+			/*
+			let pxlink = vpx.linkInfo;
+			let nxlink = vnx.linkInfo;
+			let pylink = vpy.linkInfo;
+			let nylink = vny.linkInfo;
+			let pzlink = vpz.linkInfo;
+			let nzlink = vnz.linkInfo;
+			*/
+
+			// 根据相邻点来构造三角形
+
+			// 每个点自己构造的三角形类型会保存起来（作为其他三角形的构成部分的不算）
+			// 当其他三角形需要这个点的时候，会检查是否冲突。
+			//    |
+			//  /1|0\
+			// ---+---
+			//  \2|3/  
+			//    |
+
+			// xy平面
+			if (bpx && bpy) {
+				let pxlink = vpx.linkInfo;
+				let pylink = vpy.linkInfo;
+				//FaceID.PXPY;
+				// 这个平面不能插入实体中，不能插入空气中
+				if (vpx.linkInfo & pyflag && vpy.linkInfo & pxflag &&
+					(pxlink & FaceID.PYNX)==0 && (pylink&FaceID.NYPX)==0
+					) {// 检查是否能构成四边形
+					// 检查是否已经创建了
+					let nzHasData = (((linkinfo | vpx.linkInfo | vpy.linkInfo) >> 6)&nzflag)!=0 ||data[vid+distx+disty-distz]>0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
+					cn.linkInfo |=FaceID.PXPY;
+					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	// 下面是实心
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					index.push(vn, vn + 1, vn + 2);
+					totalvn += 3;
+					vn += 3;
+				}
+			}
+			if (bpy && bnx) {
+				let nxlink = vnx.linkInfo;
+				let pylink = vpy.linkInfo;
+	
+				if (pylink & nxflag && nxlink & pyflag &&
+					(pylink & FaceID.NXNY)==0 && (nxlink &FaceID.PXPY)==0
+					) {// 检查是否能构成四边形
+					let nzHasData = (((linkinfo | pylink | nxlink) >> 6)&nzflag)!=0 || data[vid+disty-distx-distz]>0;	// nz是否有数据。任何一个有就算
+					cn.linkInfo |=FaceID.PYNX;
+					this.calcNormal(cx, cy, cz, vpy, vnx, nzHasData, norm);	// 下面是实心
+					this.pushVB(vertex, cn, vpy, vnx, norm);
+					index.push(vn, vn + 1, vn + 2);
+					totalvn += 3;
+					vn += 3;
+				}
+			 }
+			if (bnx && bny) {
+				let nxlink = vnx.linkInfo;
+				let nylink = vny.linkInfo;
+	
+				if (nxlink & nyflag && nylink & nxflag &&
+					(nxlink & FaceID.NYPX)==0 && (nylink &FaceID.PYNX)==0
+					) {// 检查是否能构成四边形
+					let nzHasData = (((linkinfo | nxlink | nylink) >> 6)&nzflag)!=0 ||data[vid-distx-disty-distz]>0;	// nz是否有数据。任何一个有就算
+					cn.linkInfo |=FaceID.NXNY;
+					this.calcNormal(cx, cy, cz, vnx, vny, nzHasData, norm);	// 下面是实心
+					this.pushVB(vertex, cn, vnx, vny, norm);
+					index.push(vn, vn + 1, vn + 2);
+					totalvn += 3;
+					vn += 3;
+				}
+			 }
+			if (bny && bpx) {  }
+
+			// xz 平面
+			if (bpx && bnz) {
+				let pxlink = vpx.linkInfo;
+				let nzlink = vnz.linkInfo;
+				if(pxlink&nzflag && nzlink&pxflag &&
+					(nzlink&FaceID.PZPX)==0 && (pxlink&FaceID.NZNX)==0){
+						let nyhasData = (((linkinfo|pxlink|nzlink)>>6)&nyflag)!=0 || data[vid+distx-distz-disty]>0;
+						cn.linkInfo|=FaceID.PXNZ;
+						console.log('add pxnz');
+						this.calcNormal(cx,cy,cz,vpx,vnz,nyhasData,norm);
+						this.pushVB(vertex,cn,vpx,vnz,norm);
+						index.push(vn,vn+1,vn+2);
+						totalvn+=3;
+						vn+=3;
+					}
+			 }
+			if (bnz && bnx ) { 
+				let nzlink = vnz.linkInfo;
+				let nxlink = vnx.linkInfo;
+				if(nzlink&nxflag && nxlink&nzflag &&
+					(nzlink&FaceID.NZNX)==0 && (nxlink&FaceID.PXNZ)==0){
+						let nyhasData = (((linkinfo|nxlink|nzlink)>>6)&nyflag)!=0 || data[vid-distx-distz-disty]>0;
+						cn.linkInfo|=FaceID.NZNX;
+						this.calcNormal(cx,cy,cz,vnz,vnx,nyhasData, norm);
+						this.pushVB(vertex,cn,vnz,vnx,norm);
+						index.push(vn,vn+1,vn+2);
+						totalvn+=3;
+						vn+=3;
+					}
+			}
+			if (bnx && bpz) {
+				let nxlink = vnx.linkInfo;
+				let pzlink = vpz.linkInfo;
+				if(nxlink&pzflag && pzlink&nxflag &&
+					(nxlink&FaceID.PZPX)==0 && (pzlink&FaceID.NXPZ)==0){
+						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&nyflag)!=0 || data[vid-distx+distz-disty]>0;
+						cn.linkInfo|=FaceID.NXPZ
+						this.calcNormal(cx,cy,cz,vnx, vpz,nyhasData, norm);
+						this.pushVB(vertex,cn,vnx,vpz,norm);
+						index.push(vn,vn+1,vn+2);
+						totalvn+=3;
+						vn+=3;
+					}
+			 }
+			if (bnz && bpx) { }
+
+			// yz 平面
+			if (bpz && bpy) { 
+				let pzlink = vpz.linkInfo;
+				let pylink = vpy.linkInfo;
+				if(pzlink&pyflag && pylink&pzflag &&
+					(pzlink&FaceID.PYNZ)==0&&(pylink&FaceID.NYPZ)==0){
+						let pxhasData = (((linkinfo|pzlink|pylink)>>6)&pxflag)!=0 || data[vid+distz+disty+distx]>0
+						cn.linkInfo|=FaceID.PZPY;
+						this.calcNormal(cx,cy,cz,vpz, vpy,pxhasData, norm);
+						this.pushVB(vertex,cn,vpz,vpy,norm);
+						index.push(vn,vn+1,vn+2);
+						totalvn+=3;
+						vn+=3;
+					}
+			}
+			if (bpy && bnz ) { 
+				let pylink = vpy.linkInfo;
+				let nzlink = vnz.linkInfo;
+				if(pylink&nzflag && nzlink&pyflag &&
+					(pylink&FaceID.NZNY)==0&&(nzlink&FaceID.PZPY)==0){
+						let pxhasData = (((linkinfo|pylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz+disty+distx]>0
+						cn.linkInfo|=FaceID.PYNZ;
+						this.calcNormal(cx,cy,cz,vpy, vnz,pxhasData, norm);
+						this.pushVB(vertex,cn,vpy,vnz,norm);
+						index.push(vn,vn+1,vn+2);
+						totalvn+=3;
+						vn+=3;
+					}
+
+			}
+			if (bnz && bny) { 
+				let nzlink = vnz.linkInfo;
+				let nylink = vny.linkInfo;
+				if(nzlink&nyflag && nylink&nzflag &&
+					(nzlink&FaceID.NYPZ)==0&&(nylink&FaceID.PYNZ)==0){	// NY->PY  PZ->NZ
+						let pxhasData = (((linkinfo|nylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz-disty+distx]>0
+						cn.linkInfo|=FaceID.NZNY;
+						this.calcNormal(cx,cy,cz,vnz, vny,pxhasData, norm);
+						this.pushVB(vertex,cn,vnz,vny,norm);
+						index.push(vn,vn+1,vn+2);
+						totalvn+=3;
+						vn+=3;
+					}				
+			}
+
+			if (bny && bpz) { }
+
+			if (vn > 60 * 1024) {
+				vn = 0;
+				let vert = new Float32Array(vertex);
+				let idx = new Uint16Array(index);
+				ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
+				vertex.length = 0;
+				index.length = 0;
+			}
+		}
+
+		if (index.length > 0) {
+			let vert = new Float32Array(vertex);
+			let idx = new Uint16Array(index);
+			ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
+		}
+		console.timeEnd('tomesh');
+		console.log('totalVertex=', totalvn);
+		return ret;
+	}
+
+	toMeshes1() {
+		console.time('tomesh');
+		let vertex: number[] = [];
+		let index: number[] = [];
+		let vn = 0;
+		let totalvn = 0;
+		var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL");
+		let norm = new Vector3();
+		let ret: Mesh[] = [];
+		let distx = this.dist[0];
+		let disty = this.dist[1];
+		let distz = this.dist[2];
+		let pxflag = 1 << AdjNode.PX;
+		let pyflag = 1 << AdjNode.PY;
+		let pzflag = 1 << AdjNode.PZ;
+		let nxflag = 1 << AdjNode.NX;
+		let nyflag = 1 << AdjNode.NY;
+		let nzflag = 1 << AdjNode.NZ;
+
+		let xzface = pxflag | nxflag | pzflag | nzflag;
+		let xyface = pxflag | pyflag | nxflag | nyflag;
+		let yzface = pyflag | nyflag | pzflag | nzflag;
+		let e0 = pyflag | nzflag | pxflag | nxflag;
+		let e1 = pyflag | nxflag | pzflag | nzflag;
+		let e2 = pxflag | nxflag | pyflag | pzflag;
+		let e3 = pzflag | nzflag | pyflag | pxflag;
+		let e4 = pxflag | nxflag | nzflag | nyflag;
+		let e5 = nxflag | nyflag | pzflag | nzflag;
+		let e6 = pxflag | nxflag | pzflag | nyflag;
+		let e7 = pxflag | nyflag | pzflag | nzflag;
+		let e8 = pxflag | nzflag | pyflag | nyflag;
+		let e9 = nxflag | nzflag | pyflag | nyflag;
+		let e10 = nxflag | pzflag | pyflag | nyflag;
+		let e11 = pyflag | nyflag | pxflag | pzflag;
+		let v0f = pxflag | pyflag | nzflag;
+		let v1f = nxflag | pyflag | nzflag;
+		let v2f = nxflag | pyflag | nzflag;
+		let v3f = pxflag | pyflag | pzflag;
+		let v4f = pxflag | nyflag | nzflag;
+		let v5f = nxflag | nyflag | nzflag;
+		let v6f = nxflag | nyflag | pzflag;
+		let v7f = pxflag | nyflag | pzflag;
+		let ve0 = pxflag | pyflag | nyflag | pzflag | nzflag; // 楼梯凹左角
+		let ve1 = nxflag | pyflag | nyflag | pzflag | nzflag; // 楼梯凹右角	 
+		let ve2 = nzflag | pxflag | nxflag | pyflag | nyflag;
+		let ve3 = pzflag | pxflag | nxflag | pyflag | nyflag;
+		let ve4 = nyflag | pxflag | nxflag | pzflag | nzflag;
+		let ve5 = pyflag | pxflag | nxflag | pzflag | nzflag;
+		let ve6 = pxflag | nxflag | pyflag | nyflag | pzflag | nzflag;
+
+		let facevt: SurfaceNetNode[] | null[] = new Array(6);
 		/**
 		 * 
 		 *         
@@ -605,7 +891,7 @@ export class SurfaceNetSmoother {
 			let vid = cn.voxID;
 
 			// 根据相邻点来构造三角形
-			switch(cn.linkInfo){
+			switch (cn.linkInfo) {
 				case xzface:
 					// 纯平面
 					let vpx = netsDict[vid + distx];	//TODO 可能会溢出到别的地方
@@ -614,393 +900,393 @@ export class SurfaceNetSmoother {
 					let vnz = netsDict[vid - distz];
 
 					//xz平面
-					this.calcNormal(cx,cy,cz,vpz,vpx,data[vid - disty] > 0,norm);	// 下面是实心
-					this.pushVB(vertex,cn,vpx,vpz,norm);
+					this.calcNormal(cx, cy, cz, vpz, vpx, data[vid - disty] > 0, norm);	// 下面是实心
+					this.pushVB(vertex, cn, vpx, vpz, norm);
 
 					//TODO 以后合并中间点
 					// 与上面的区别仅仅是 vpx->vnx, vpz->vnz
-					this.calcNormal(cx,cy,cz,vnz,vnx,data[vid - disty] > 0,norm);	// 下面是实心
-					this.pushVB(vertex,cn,vnx,vnz,norm);
-	
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					this.calcNormal(cx, cy, cz, vnz, vnx, data[vid - disty] > 0, norm);	// 下面是实心
+					this.pushVB(vertex, cn, vnx, vnz, norm);
+
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
-				break;
-				case yzface:{
+					break;
+				case yzface: {
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vpy,vnz, data[vid+distx]>0 ,norm);
-					this.pushVB(vertex,cn,vpy,vnz,norm);
-					this.calcNormal(cx,cy,cz,vny,vpz, data[vid+distx]>0 ,norm);
-					this.pushVB(vertex,cn,vny,vpz,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vpy, vnz, data[vid + distx] > 0, norm);
+					this.pushVB(vertex, cn, vpy, vnz, norm);
+					this.calcNormal(cx, cy, cz, vny, vpz, data[vid + distx] > 0, norm);
+					this.pushVB(vertex, cn, vny, vpz, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case xyface:{
+					break;
+				case xyface: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					this.calcNormal(cx,cy,cz,vpx,vpy, data[vid-distz]>0 ,norm);
-					this.pushVB(vertex,cn,vpy,vpx,norm);
-					this.calcNormal(cx,cy,cz,vnx,vny, data[vid-distz]>0 ,norm);
-					this.pushVB(vertex,cn,vny,vnx,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					this.calcNormal(cx, cy, cz, vpx, vpy, data[vid - distz] > 0, norm);
+					this.pushVB(vertex, cn, vpy, vpx, norm);
+					this.calcNormal(cx, cy, cz, vnx, vny, data[vid - distz] > 0, norm);
+					this.pushVB(vertex, cn, vny, vnx, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e0:{
+					break;
+				case e0: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vpx, vpy,data[vid+disty-distz]>0,norm);// 前面
-					this.pushVB(vertex,cn,vpx,vpy,norm);
-					this.calcNormal(cx,cy,cz,vnx, vnz,data[vid-distz+disty]>0,norm);// 下面
-					this.pushVB(vertex, cn, vnx,vnz,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vpx, vpy, data[vid + disty - distz] > 0, norm);// 前面
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					this.calcNormal(cx, cy, cz, vnx, vnz, data[vid - distz + disty] > 0, norm);// 下面
+					this.pushVB(vertex, cn, vnx, vnz, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e1:{
+					break;
+				case e1: {
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vnz, vpy,data[vid+disty-distx]>0,norm);// 右面
-					this.pushVB(vertex,cn,vnz,vpy,norm);
-					this.calcNormal(cx,cy,cz,vnx, vnz,data[vid-distx+disty]>0,norm);// 下面
-					this.pushVB(vertex, cn, vnx,vnz,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vnz, vpy, data[vid + disty - distx] > 0, norm);// 右面
+					this.pushVB(vertex, cn, vnz, vpy, norm);
+					this.calcNormal(cx, cy, cz, vnx, vnz, data[vid - distx + disty] > 0, norm);// 下面
+					this.pushVB(vertex, cn, vnx, vnz, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e2:{
+					break;
+				case e2: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 
 					// 凸凹决定法线
-					this.calcNormal(cx,cy,cz,vpy, vpx,data[vid+disty+distz]>0,norm);	// 后面。当前的上面的前面是否是实心
-					this.pushVB(vertex,cn,vpy,vpx,norm);
-					this.calcNormal(cx,cy,cz,vpx, vpz,data[vid+disty+distz]>0,norm); // 下面
-					this.pushVB(vertex,cn,vpx,vpz,norm);
+					this.calcNormal(cx, cy, cz, vpy, vpx, data[vid + disty + distz] > 0, norm);	// 后面。当前的上面的前面是否是实心
+					this.pushVB(vertex, cn, vpy, vpx, norm);
+					this.calcNormal(cx, cy, cz, vpx, vpz, data[vid + disty + distz] > 0, norm); // 下面
+					this.pushVB(vertex, cn, vpx, vpz, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 
 				}
-				break;
-				case e3:{
+					break;
+				case e3: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz, vpy, vnz, data[vid+disty+distx]>0,norm);//左面
-					this.pushVB(vertex,cn,vpy,vnz,norm);
-					this.calcNormal(cx,cy,cz, vpx, vpz,data[vid+distx+disty]>0,norm);// 下面
-					this.pushVB(vertex,cn,vpx,vpz,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vpy, vnz, data[vid + disty + distx] > 0, norm);//左面
+					this.pushVB(vertex, cn, vpy, vnz, norm);
+					this.calcNormal(cx, cy, cz, vpx, vpz, data[vid + distx + disty] > 0, norm);// 下面
+					this.pushVB(vertex, cn, vpx, vpz, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e4:{
+					break;
+				case e4: {
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz, vnz, vnx,data[vid-distz-disty]>0,norm);	// 上面
-					this.pushVB(vertex,cn,vnz,vnx,norm);
-					this.calcNormal(cx,cy,cz, vnx, vny,data[vid-disty-distz]>0,norm);	// 前面
-					this.pushVB(vertex,cn,vnx,vny,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vnz, vnx, data[vid - distz - disty] > 0, norm);	// 上面
+					this.pushVB(vertex, cn, vnz, vnx, norm);
+					this.calcNormal(cx, cy, cz, vnx, vny, data[vid - disty - distz] > 0, norm);	// 前面
+					this.pushVB(vertex, cn, vnx, vny, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e5:{
+					break;
+				case e5: {
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
 					let vpz = netsDict[vid + distz];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
 
-					this.calcNormal(cx,cy,cz, vnz, vnx,data[vid-distx-disty]>0,norm);	// 上面
-					this.pushVB(vertex,cn,vnz,vnx,norm);
-					this.calcNormal(cx,cy,cz,vpz, vny,data[vid-disty-distx]>0,norm);	// 右面
-					this.pushVB(vertex,cn,vpz,vny,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					this.calcNormal(cx, cy, cz, vnz, vnx, data[vid - distx - disty] > 0, norm);	// 上面
+					this.pushVB(vertex, cn, vnz, vnx, norm);
+					this.calcNormal(cx, cy, cz, vpz, vny, data[vid - disty - distx] > 0, norm);	// 右面
+					this.pushVB(vertex, cn, vpz, vny, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e6:{
+					break;
+				case e6: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					this.calcNormal(cx,cy,cz, vny, vnx, data[vid-disty+distz]>0 ,norm);	// 后面
-					this.pushVB(vertex,cn,vny,vnx,norm);
-					this.calcNormal(cx,cy,cz,vpz, vpx, data[vid+distz-disty]>0, norm);	// 上面
-					this.pushVB(vertex,cn,vpz,vpx,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					this.calcNormal(cx, cy, cz, vny, vnx, data[vid - disty + distz] > 0, norm);	// 后面
+					this.pushVB(vertex, cn, vny, vnx, norm);
+					this.calcNormal(cx, cy, cz, vpz, vpx, data[vid + distz - disty] > 0, norm);	// 上面
+					this.pushVB(vertex, cn, vpz, vpx, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e7:{
+					break;
+				case e7: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpz = netsDict[vid + distz];
 					let vny = netsDict[vid - disty];
-					this.calcNormal(cx,cy,cz, vpz, vpx,data[vid+distx-disty]>0,norm);	// 上面
-					this.pushVB(vertex,cn,vpz,vpx,norm);
+					this.calcNormal(cx, cy, cz, vpz, vpx, data[vid + distx - disty] > 0, norm);	// 上面
+					this.pushVB(vertex, cn, vpz, vpx, norm);
 
-					this.calcNormal(cx,cy,cz,vny, vpz,data[vid-disty+distx]>0,norm);	// 左面
-					this.pushVB(vertex,cn,vpz,vny,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					this.calcNormal(cx, cy, cz, vny, vpz, data[vid - disty + distx] > 0, norm);	// 左面
+					this.pushVB(vertex, cn, vpz, vny, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 
 				}
-				break;
-				case e8:{
+					break;
+				case e8: {
 					/**    ^
 					 *   / | \
 					 * /---|--\
 					 */
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vpx, vpy,data[vid+distx-distz]>0,norm);	//前面
-					this.pushVB(vertex,cn,vpx,vpy,norm);
-					this.calcNormal(cx,cy,cz, vpy, vnz,data[vid-distz+distx]>0,norm);	// 左面
-					this.pushVB(vertex,cn,vpy,vnz,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vpx, vpy, data[vid + distx - distz] > 0, norm);	//前面
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					this.calcNormal(cx, cy, cz, vpy, vnz, data[vid - distz + distx] > 0, norm);	// 左面
+					this.pushVB(vertex, cn, vpy, vnz, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e9:{
+					break;
+				case e9: {
 					let vpy = netsDict[vid + disty];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vnz, vpy, data[vid-distz-distx]>0,norm);	// 右面
-					this.pushVB(vertex,cn,vnz,vpy,norm);
-					this.calcNormal(cx,cy,cz,vnx, vny,data[vid-distx-distz]>0,norm);	// 前面
-					this.pushVB(vertex,cn,vnx,vny,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vnz, vpy, data[vid - distz - distx] > 0, norm);	// 右面
+					this.pushVB(vertex, cn, vnz, vpy, norm);
+					this.calcNormal(cx, cy, cz, vnx, vny, data[vid - distx - distz] > 0, norm);	// 前面
+					this.pushVB(vertex, cn, vnx, vny, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e10:{
+					break;
+				case e10: {
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					this.calcNormal(cx,cy,cz, vpz, vny, data[vid+distz-distx]>0,norm); // 右面
-					this.pushVB(vertex,cn,vpz,vny,norm);
-					this.calcNormal(cx,cy,cz, vny, vnx, data[vid-distx+distz]>0,norm);  //后面
-					this.pushVB(vertex,cn,vny,vnx,norm);
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					this.calcNormal(cx, cy, cz, vpz, vny, data[vid + distz - distx] > 0, norm); // 右面
+					this.pushVB(vertex, cn, vpz, vny, norm);
+					this.calcNormal(cx, cy, cz, vny, vnx, data[vid - distx + distz] > 0, norm);  //后面
+					this.pushVB(vertex, cn, vny, vnx, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case e11:{
+					break;
+				case e11: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vny = netsDict[vid - disty];
-					this.calcNormal(cx,cy,cz,vpy, vpx,data[vid+distx+distz]>0,norm);	// 后面
-					this.pushVB(vertex,cn,vpx,vpy,norm);
-					this.calcNormal(cx,cy,cz,vny, vpz,data[vid+distz+distx]>0,norm);	// 左面
-					this.pushVB(vertex,cn,vpz,vny,norm);
+					this.calcNormal(cx, cy, cz, vpy, vpx, data[vid + distx + distz] > 0, norm);	// 后面
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					this.calcNormal(cx, cy, cz, vny, vpz, data[vid + distz + distx] > 0, norm);	// 左面
+					this.pushVB(vertex, cn, vpz, vny, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case v0f:{
+					break;
+				case v0f: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
 
-					this.calcNormal(cx,cy,cz,vpx, vpy,true,norm);
-					this.pushVB(vertex,cn,vpx,vpy,norm);
-					this.calcNormal(cx,cy,cz,vpy, vnz,true,norm);
-					this.pushVB(vertex,cn,vpy,vnz,norm);
+					this.calcNormal(cx, cy, cz, vpx, vpy, true, norm);
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					this.calcNormal(cx, cy, cz, vpy, vnz, true, norm);
+					this.pushVB(vertex, cn, vpy, vnz, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case v1f:{
+					break;
+				case v1f: {
 					let vpy = netsDict[vid + disty];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
 
-					this.calcNormal(cx,cy,cz,vnz, vpy,true,norm);
-					this.pushVB(vertex,cn,vnz,vpy,norm);
-					this.calcNormal(cx,cy,cz,vnx, vnz,true,norm);
-					this.pushVB(vertex,cn,vnx,vnz,norm);
+					this.calcNormal(cx, cy, cz, vnz, vpy, true, norm);
+					this.pushVB(vertex, cn, vnz, vpy, norm);
+					this.calcNormal(cx, cy, cz, vnx, vnz, true, norm);
+					this.pushVB(vertex, cn, vnx, vnz, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case v2f:{
+					break;
+				case v2f: {
 					//不用做
 				}
-				break;
-				case v3f:{
+					break;
+				case v3f: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
 
-					this.calcNormal(cx,cy,cz,vpy, vpx,true,norm);
-					this.pushVB(vertex,cn,vpy,vpx,norm);
-					this.calcNormal(cx,cy,cz,vpx, vpz,true,norm);
-					this.pushVB(vertex,cn,vpx,vpz,norm);
+					this.calcNormal(cx, cy, cz, vpy, vpx, true, norm);
+					this.pushVB(vertex, cn, vpy, vpx, norm);
+					this.calcNormal(cx, cy, cz, vpx, vpz, true, norm);
+					this.pushVB(vertex, cn, vpx, vpz, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case v4f:{
+					break;
+				case v4f: {
 					// 不用做
 				}
-				break;
-				case v5f:{
+					break;
+				case v5f: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
 
-					this.calcNormal(cx,cy,cz,vnz, vnx,true,norm);
-					this.pushVB(vertex,cn,vnz,vnx,norm);
-					this.calcNormal(cx,cy,cz,vnx, vny,true,norm);
-					this.pushVB(vertex,cn,vnx,vny,norm);
+					this.calcNormal(cx, cy, cz, vnz, vnx, true, norm);
+					this.pushVB(vertex, cn, vnz, vnx, norm);
+					this.calcNormal(cx, cy, cz, vnx, vny, true, norm);
+					this.pushVB(vertex, cn, vnx, vny, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case v6f:{
+					break;
+				case v6f: {
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
 
-					this.calcNormal(cx,cy,cz,vpz, vny,true,norm);
-					this.pushVB(vertex,cn,vpz,vny,norm);
-					this.calcNormal(cx,cy,cz,vny, vnx,true,norm);
-					this.pushVB(vertex,cn,vny,vnx,norm);
+					this.calcNormal(cx, cy, cz, vpz, vny, true, norm);
+					this.pushVB(vertex, cn, vpz, vny, norm);
+					this.calcNormal(cx, cy, cz, vny, vnx, true, norm);
+					this.pushVB(vertex, cn, vny, vnx, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case v7f:{
+					break;
+				case v7f: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpz = netsDict[vid + distz];
 					let vny = netsDict[vid - disty];
 
-					this.calcNormal(cx,cy,cz,vpz, vpx,true,norm);
-					this.pushVB(vertex,cn,vpz,vpx,norm);
-					this.calcNormal(cx,cy,cz,vny, vpz,true,norm);
-					this.pushVB(vertex,cn,vpz,vny,norm);
+					this.calcNormal(cx, cy, cz, vpz, vpx, true, norm);
+					this.pushVB(vertex, cn, vpz, vpx, norm);
+					this.calcNormal(cx, cy, cz, vny, vpz, true, norm);
+					this.pushVB(vertex, cn, vpz, vny, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case ve0:{
+					break;
+				case ve0: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];				
-					this.calcNormal(cx,cy,cz,vpy,vnz,true,norm);
-					this.pushVB(vertex,cn,vpy,vnz,norm);	
-					this.calcNormal(cx,cy,cz,vny,vpz,true,norm);
-					this.pushVB(vertex,cn,vny,vpz,norm);	
-					this.calcNormal(cx,cy,cz,vpx,vpy,true,norm);
-					this.pushVB(vertex,cn,vpx,vpy,norm);	
-					this.calcNormal(cx,cy,cz,vpz,vpx,true,norm);
-					this.pushVB(vertex,cn,vpz,vpx,norm);	
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5,vn+6,vn+7,vn+8,vn+9,vn+10,vn+11);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vpy, vnz, true, norm);
+					this.pushVB(vertex, cn, vpy, vnz, norm);
+					this.calcNormal(cx, cy, cz, vny, vpz, true, norm);
+					this.pushVB(vertex, cn, vny, vpz, norm);
+					this.calcNormal(cx, cy, cz, vpx, vpy, true, norm);
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					this.calcNormal(cx, cy, cz, vpz, vpx, true, norm);
+					this.pushVB(vertex, cn, vpz, vpx, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5, vn + 6, vn + 7, vn + 8, vn + 9, vn + 10, vn + 11);
 					totalvn += 12;
 					vn += 12;
 				}
-				break;
-				case ve1:{
+					break;
+				case ve1: {
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vnz, vpy,true,norm);
-					this.pushVB(vertex,cn,vnz,vpy,norm);
-					this.calcNormal(cx,cy,cz,vpz, vny,true,norm);
-					this.pushVB(vertex,cn,vpz,vny,norm);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vnz, vpy, true, norm);
+					this.pushVB(vertex, cn, vnz, vpy, norm);
+					this.calcNormal(cx, cy, cz, vpz, vny, true, norm);
+					this.pushVB(vertex, cn, vpz, vny, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;
-				case ve2:{
+					break;
+				case ve2: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
-					this.calcNormal(cx,cy,cz,vpy,vnz,true,norm);
-					this.pushVB(vertex,cn,vpy,vnz,norm);	
-					this.calcNormal(cx,cy,cz,vnz,vnx,true,norm);
-					this.pushVB(vertex,cn,vnz,vnx,norm);	
-					this.calcNormal(cx,cy,cz,vnx,vny,true,norm);
-					this.pushVB(vertex,cn,vnx,vny,norm);	
-					this.calcNormal(cx,cy,cz,vpx,vpy,true,norm);
-					this.pushVB(vertex,cn,vpx,vpy,norm);	
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5,vn+6,vn+7,vn+8,vn+9,vn+10,vn+11);
+					let vnz = netsDict[vid - distz];
+					this.calcNormal(cx, cy, cz, vpy, vnz, true, norm);
+					this.pushVB(vertex, cn, vpy, vnz, norm);
+					this.calcNormal(cx, cy, cz, vnz, vnx, true, norm);
+					this.pushVB(vertex, cn, vnz, vnx, norm);
+					this.calcNormal(cx, cy, cz, vnx, vny, true, norm);
+					this.pushVB(vertex, cn, vnx, vny, norm);
+					this.calcNormal(cx, cy, cz, vpx, vpy, true, norm);
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5, vn + 6, vn + 7, vn + 8, vn + 9, vn + 10, vn + 11);
 					totalvn += 12;
 					vn += 12;
 				}
-				break;
-				case ve3:{
+					break;
+				case ve3: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					this.calcNormal(cx,cy,cz,vpy, vpx,true,norm);
-					this.pushVB(vertex,cn,vpy,vpx,norm);
-					this.calcNormal(cx,cy,cz,vny, vnx,true,norm);
-					this.pushVB(vertex,cn,vny,vnx,norm);
+					this.calcNormal(cx, cy, cz, vpy, vpx, true, norm);
+					this.pushVB(vertex, cn, vpy, vpx, norm);
+					this.calcNormal(cx, cy, cz, vny, vnx, true, norm);
+					this.pushVB(vertex, cn, vny, vnx, norm);
 
-					index.push(vn,vn+1,vn+2,vn+3,vn+4,vn+5);
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5);
 					totalvn += 6;
 					vn += 6;
 				}
-				break;				
-				case ve4:{
+					break;
+				case ve4: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
@@ -1015,12 +1301,12 @@ export class SurfaceNetSmoother {
 					vn += 6;
 					*/
 				}
-				break;
-				case ve5:{
+					break;
+				case ve5: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
 					/*
 					this.calcNormal(cx,cy,cz,vpx, vpz, true,norm);	
 					this.pushVB(vertex,cn,vpx,vpz,norm);
@@ -1031,14 +1317,45 @@ export class SurfaceNetSmoother {
 					vn += 6;
 					*/
 				}
-				break;
-				default:{
+					break;
+				case ve6: {
 					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 					let vpy = netsDict[vid + disty];
 					let vpz = netsDict[vid + distz];
 					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 					let vny = netsDict[vid - disty];
-					let vnz = netsDict[vid - distz];					
+					let vnz = netsDict[vid - distz];
+					///*
+					this.calcNormal(cx, cy, cz, vpy, vnz, true, norm);
+					this.pushVB(vertex, cn, vpy, vnz, norm);
+					this.calcNormal(cx, cy, cz, vnz, vny, true, norm);
+					this.pushVB(vertex, cn, vnz, vny, norm);
+					this.calcNormal(cx, cy, cz, vnx, vny, true, norm);
+					this.pushVB(vertex, cn, vnx, vny, norm);
+
+					this.calcNormal(cx, cy, cz, vny, vnz, true, norm);
+					this.pushVB(vertex, cn, vny, vnz, norm);
+					this.calcNormal(cx, cy, cz, vnz, vpx, true, norm);
+					this.pushVB(vertex, cn, vnz, vpx, norm);
+					this.calcNormal(cx, cy, cz, vpx, vpy, true, norm);
+					this.pushVB(vertex, cn, vpx, vpy, norm);
+
+					index.push(vn, vn + 1, vn + 2, vn + 3, vn + 4, vn + 5,
+						vn + 6, vn + 7, vn + 8, vn + 9, vn + 10, vn + 11,
+						vn + 12, vn + 13, vn + 14, vn + 15, vn + 16, vn + 17);
+
+					totalvn += 18;
+					vn += 18;
+					//*/
+				}
+					break;
+				default: {
+					let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
+					let vpy = netsDict[vid + disty];
+					let vpz = netsDict[vid + distz];
+					let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
+					let vny = netsDict[vid - disty];
+					let vnz = netsDict[vid - distz];
 				}
 					break;
 			}
