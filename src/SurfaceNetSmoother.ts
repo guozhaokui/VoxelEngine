@@ -106,6 +106,7 @@ InvDir[AdjNode.NZ] = AdjNode.PZ;
 
 export class SurfaceNetNode {
 	voxID: int = 0;		// 最大允许1024**3。能反向得到xyz
+	vertexID:int=0;		// 三角形化用到
 	/** 调整后的位置 优化的时候可以用byte表示相对调整位置*/
 	posx: number;
 	posy: number;
@@ -487,6 +488,22 @@ export class SurfaceNetSmoother {
 		let nn = nets.length;
 		let dims = this.dims;
 
+		let pxflag = 1 << AdjNode.PX;
+		let pyflag = 1 << AdjNode.PY;
+		let pzflag = 1 << AdjNode.PZ;
+		let nxflag = 1 << AdjNode.NX;
+		let nyflag = 1 << AdjNode.NY;
+		let nzflag = 1 << AdjNode.NZ;
+		let v0f = pxflag | pyflag | nzflag;
+		let v1f = nxflag | pyflag | nzflag;
+		let v2f = nxflag | pyflag | nzflag;
+		let v3f = pxflag | pyflag | pzflag;
+		let v4f = pxflag | nyflag | nzflag;
+		let v5f = nxflag | nyflag | nzflag;
+		let v6f = nxflag | nyflag | pzflag;
+		let v7f = pxflag | nyflag | pzflag;
+
+
 		for (let i = 0; i < it; i++) {
 			// 清零
 			for (let ni = 0; ni < nn; ni++) {
@@ -524,12 +541,18 @@ export class SurfaceNetSmoother {
 				let oy = int1[1] = voxid / dist[1];	// y = id/(xsize*zsize)
 				let oz = int1[0] = voxid / dims[0] % dims[2];	// z = id/xsize%zsize. x部分变成小数被丢掉，剩下的是 y*zsize+z
 				cn.step(k);
+				let linkinfo = cn.linkInfo&0b111111;
+				if(linkinfo==v0f || linkinfo==v1f ||linkinfo==v2f ||linkinfo==v3f ||
+					linkinfo==v4f ||linkinfo==v5f ||linkinfo==v6f ||linkinfo==v7f ){
+					}
+				else{
 				if (cn.posx < ox - 0.5) cn.posx = ox - 0.5;
 				if (cn.posx > ox + 0.5) cn.posx = ox + 0.5;
 				if (cn.posy < oy - 0.5) cn.posy = oy - 0.5;
 				if (cn.posy > oy + 0.5) cn.posy = oy + 0.5;
 				if (cn.posz < oz - 0.5) cn.posz = oz - 0.5;
 				if (cn.posz > oz + 0.5) cn.posz = oz + 0.5;
+				}
 			}
 		}
 		console.timeEnd('relaxnet');
@@ -577,23 +600,6 @@ export class SurfaceNetSmoother {
 		let nyflag = 1 << AdjNode.NY;
 		let nzflag = 1 << AdjNode.NZ;
 
-		/**
-		 * 
-		 *         
-		 *     7-----e6-----6
-		 *    /            /|
-		 *   e7          e5 |
-		 *  /  e11       / e10
-		 * 4-----e4-----5   |
-		 * |            |   |
-		 * |    3     e2|   2
-		 * e8          e9  / 
-		 * |  e3        | e1
-		 * |            |/
-		 * 0-----e0-----1 
-		 * 
-		 * 
-		 */
 
 		let netsDict = this.surfacenet;
 		let nets = this.dbgSurfaceNet;
