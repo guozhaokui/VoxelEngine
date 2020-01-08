@@ -606,11 +606,15 @@ export class SurfaceNetSmoother {
 		let data = this.data;
 		let n = nets.length;
 		// 先添加顶点，记录顶点id
-		/*
 		for (let i = 0; i < n; i++) {
 			let cn = nets[i];
+			cn.vertexID=i;
+			let cx = cn.posx;
+			let cy = cn.posy;
+			let cz = cn.posz;
+			vertex.push(cx,cy,cz, norm.x, norm.y, norm.z);
 		}
-		*/
+
 		for (let i = 0; i < n; i++) {
 			let cn = nets[i];
 			let cx = cn.posx;
@@ -652,13 +656,14 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | pxlink | pylink) >> 6)&nzflag)!=0 ||data[vid+distx+disty-distz]>0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
 					cn.linkInfo |=FaceID.PXPY;
 					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vpx, vpy, norm);
-					index.push(vn, vn + 1, vn + 2);
-					totalvn += 3;
-					vn += 3;
+					vertex[cn.vertexID*6+3] = norm.x;
+					vertex[cn.vertexID*6+4] = norm.y;
+					vertex[cn.vertexID*6+5] = norm.z;
+					//this.pushVB(vertex, cn, vpx, vpy, norm);
+					index.push(cn.vertexID, vpx.vertexID, vpy.vertexID);
 				}
 			}
-			if (bpy && bnx) {
+			if (bpy && bnx ) {
 				let vpy = netsDict[vid + disty];
 				let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 				let nxlink = vnx.linkInfo;
@@ -670,13 +675,14 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | pylink | nxlink) >> 6)&nzflag)!=0 || data[vid+disty-distx-distz]>0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.PYNX;
 					this.calcNormal(cx, cy, cz, vpy, vnx, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vpy, vnx, norm);
-					index.push(vn, vn + 1, vn + 2);
-					totalvn += 3;
-					vn += 3;
+					vertex[cn.vertexID*6+3] = norm.x;
+					vertex[cn.vertexID*6+4] = norm.y;
+					vertex[cn.vertexID*6+5] = norm.z;
+					//this.pushVB(vertex, cn, vpy, vnx, norm);
+					index.push(cn.vertexID, vpy.vertexID, vnx.vertexID);
 				}
 			 }
-			if (bnx && bny) {
+			if (bnx && bny ) {
 				let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 				let vny = netsDict[vid - disty];
 
@@ -689,16 +695,18 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | nxlink | nylink) >> 6)&nzflag)!=0 ||data[vid-distx-disty-distz]>0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.NXNY;
 					this.calcNormal(cx, cy, cz, vnx, vny, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vnx, vny, norm);
-					index.push(vn, vn + 1, vn + 2);
-					totalvn += 3;
-					vn += 3;
+					//this.pushVB(vertex, cn, vnx, vny, norm);
+					vertex[cn.vertexID*6+3] = norm.x;
+					vertex[cn.vertexID*6+4] = norm.y;
+					vertex[cn.vertexID*6+5] = norm.z;
+
+					index.push(cn.vertexID, vnx.vertexID, vny.vertexID);
 				}
 			 }
 			if (bny && bpx) {  }
 
 			// xz 平面
-			if (bpx && bnz) {
+			if (bpx && bnz ) {
 				let vpx = netsDict[vid + distx];		//TODO 可能会溢出到别的地方
 				let vnz = netsDict[vid - distz];
 	
@@ -709,10 +717,12 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|pxlink|nzlink)>>6)&nyflag)!=0 || data[vid+distx-distz-disty]>0;
 						cn.linkInfo|=FaceID.PXNZ;
 						this.calcNormal(cx,cy,cz,vpx,vnz,nyhasData,norm);
-						this.pushVB(vertex,cn,vpx,vnz,norm);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						//this.pushVB(vertex,cn,vpx,vnz,norm);
+						vertex[cn.vertexID*6+3] = norm.x;
+						vertex[cn.vertexID*6+4] = norm.y;
+						vertex[cn.vertexID*6+5] = norm.z;
+	
+						index.push(cn.vertexID, vpx.vertexID, vnz.vertexID);
 					}
 			 }
 
@@ -727,14 +737,16 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|nxlink|nzlink)>>6)&nyflag)!=0 || data[vid-distx-distz-disty]>0;
 						cn.linkInfo|=FaceID.NZNX;
 						this.calcNormal(cx,cy,cz,vnz,vnx,nyhasData, norm);
-						this.pushVB(vertex,cn,vnz,vnx,norm);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						//this.pushVB(vertex,cn,vnz,vnx,norm);
+						vertex[cn.vertexID*6+3] = norm.x;
+						vertex[cn.vertexID*6+4] = norm.y;
+						vertex[cn.vertexID*6+5] = norm.z;
+	
+						index.push(cn.vertexID, vnx.vertexID, vnz.vertexID);
 					}
 			}
 
-			if (bnx && bpz) {
+			if (bnx && bpz ) {
 				let vpz = netsDict[vid + distz];
 				let vnx = netsDict[vid - distx];		//TODO 可能会溢出到别的地方
 	
@@ -745,16 +757,18 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&nyflag)!=0 || data[vid-distx+distz-disty]>0;
 						cn.linkInfo|=FaceID.NXPZ
 						this.calcNormal(cx,cy,cz,vnx, vpz,nyhasData, norm);
-						this.pushVB(vertex,cn,vnx,vpz,norm);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						//this.pushVB(vertex,cn,vnx,vpz,norm);
+						vertex[cn.vertexID*6+3] = norm.x;
+						vertex[cn.vertexID*6+4] = norm.y;
+						vertex[cn.vertexID*6+5] = norm.z;
+	
+						index.push(cn.vertexID, vpz.vertexID, vnx.vertexID);
 					}
 			 }
 			if (bnz && bpx) { }
 
 			// yz 平面
-			if (bpz && bpy) { 
+			if (bpz && bpy ) { 
 				let vpy = netsDict[vid + disty];
 				let vpz = netsDict[vid + distz];
 	
@@ -765,10 +779,12 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|pzlink|pylink)>>6)&pxflag)!=0 || data[vid+distz+disty+distx]>0
 						cn.linkInfo|=FaceID.PZPY;
 						this.calcNormal(cx,cy,cz,vpz, vpy,pxhasData, norm);
-						this.pushVB(vertex,cn,vpz,vpy,norm);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						//this.pushVB(vertex,cn,vpz,vpy,norm);
+						vertex[cn.vertexID*6+3] = norm.x;
+						vertex[cn.vertexID*6+4] = norm.y;
+						vertex[cn.vertexID*6+5] = norm.z;
+	
+						index.push(cn.vertexID, vpy.vertexID, vpz.vertexID);
 					}
 			}
 			if (bpy && bnz ) { 
@@ -782,14 +798,16 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|pylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz+disty+distx]>0
 						cn.linkInfo|=FaceID.PYNZ;
 						this.calcNormal(cx,cy,cz,vpy, vnz,pxhasData, norm);
-						this.pushVB(vertex,cn,vpy,vnz,norm);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						//this.pushVB(vertex,cn,vpy,vnz,norm);
+						vertex[cn.vertexID*6+3] = norm.x;
+						vertex[cn.vertexID*6+4] = norm.y;
+						vertex[cn.vertexID*6+5] = norm.z;
+	
+						index.push(cn.vertexID, vpy.vertexID, vnz.vertexID);
 					}
 
 			}
-			if (bnz && bny) { 
+			if (bnz && bny ) { 
 				let vny = netsDict[vid - disty];
 				let vnz = netsDict[vid - distz];
 	
@@ -800,10 +818,12 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|nylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz-disty+distx]>0
 						cn.linkInfo|=FaceID.NZNY;
 						this.calcNormal(cx,cy,cz,vnz, vny,pxhasData, norm);
-						this.pushVB(vertex,cn,vnz,vny,norm);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						//this.pushVB(vertex,cn,vnz,vny,norm);
+						vertex[cn.vertexID*6+3] = norm.x;
+						vertex[cn.vertexID*6+4] = norm.y;
+						vertex[cn.vertexID*6+5] = norm.z;
+	
+						index.push(cn.vertexID, vny.vertexID, vnz.vertexID);
 					}				
 			}
 
