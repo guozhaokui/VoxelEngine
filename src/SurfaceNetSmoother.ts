@@ -131,6 +131,7 @@ export class SurfaceNetNode {
 
 	resetTarget() {
 		this.tmpx = this.tmpy = this.tmpz = 0;
+		this.linkInfo&=~0b1111111111110000000000000;
 	}
 
 	step(k: number) {
@@ -713,6 +714,7 @@ export class SurfaceNetSmoother {
 						vn+=3;
 					}
 			 }
+
 			if (bnz && bnx ) { 
 				let nzlink = vnz.linkInfo;
 				let nxlink = vnx.linkInfo;
@@ -727,11 +729,12 @@ export class SurfaceNetSmoother {
 						vn+=3;
 					}
 			}
+
 			if (bnx && bpz) {
 				let nxlink = vnx.linkInfo;
 				let pzlink = vpz.linkInfo;
 				if(nxlink&pzflag && pzlink&nxflag &&
-					(nxlink&FaceID.PZPX)==0 && (pzlink&FaceID.NXPZ)==0){
+					(nxlink&FaceID.PZPX)==0 && (pzlink&FaceID.NZNX)==0){
 						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&nyflag)!=0 || data[vid-distx+distz-disty]>0;
 						cn.linkInfo|=FaceID.NXPZ
 						this.calcNormal(cx,cy,cz,vnx, vpz,nyhasData, norm);

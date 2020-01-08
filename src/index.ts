@@ -152,7 +152,7 @@ async function main() {
 
 	// 测试形状
 	//test data end
-	let ss = 81;
+	let ss = 90;
 	switch(ss){
 		case 0:
 			vox.to(2,2,2,true);
@@ -218,7 +218,7 @@ async function main() {
 
 	if(true){
 		let rmeshes:MeshSprite3D[]=[];
-		for(let i=0; i<1; i++){
+		for(let i=0; i<1000; i++){
 			m2.relaxSurfaceNet(1);
 			let meshes = m2.toMeshes();
 			meshes.forEach(mesh => {
