@@ -575,10 +575,15 @@ export class SurfaceNetSmoother {
 		}
 	}
 
-	private pushVB(vb: number[], v0: SurfaceNetNode, v1: SurfaceNetNode, v2: SurfaceNetNode, norm: Vector3) {
+	private pushVB(vb: number[], v0: SurfaceNetNode, v1: SurfaceNetNode, v2: SurfaceNetNode, norm: Vector3, order12:boolean=true) {
 		vb.push(v0.posx, v0.posy, v0.posz, norm.x, norm.y, norm.z);
-		vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
-		vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
+		if(order12){
+			vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
+			vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
+		}else{
+			vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
+			vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
+		}
 	}
 
 	toMeshes() {
@@ -652,7 +657,7 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | pxlink | pylink) >> 6)&nzflag)!=0 ||data[vid+distx+disty-distz]>0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
 					cn.linkInfo |=FaceID.PXPY;
 					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vpx, vpy, norm);
+					this.pushVB(vertex, cn, vpy, vpx, norm,nzHasData);
 					index.push(vn, vn + 1, vn + 2);
 					totalvn += 3;
 					vn += 3;
@@ -670,7 +675,7 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | pylink | nxlink) >> 6)&nzflag)!=0 || data[vid+disty-distx-distz]>0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.PYNX;
 					this.calcNormal(cx, cy, cz, vpy, vnx, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vpy, vnx, norm);
+					this.pushVB(vertex, cn, vnx, vpy, norm,nzHasData);
 					index.push(vn, vn + 1, vn + 2);
 					totalvn += 3;
 					vn += 3;
@@ -689,7 +694,7 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | nxlink | nylink) >> 6)&nzflag)!=0 ||data[vid-distx-disty-distz]>0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.NXNY;
 					this.calcNormal(cx, cy, cz, vnx, vny, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vnx, vny, norm);
+					this.pushVB(vertex, cn, vny, vnx, norm,nzHasData);
 					index.push(vn, vn + 1, vn + 2);
 					totalvn += 3;
 					vn += 3;
@@ -709,7 +714,7 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|pxlink|nzlink)>>6)&nyflag)!=0 || data[vid+distx-distz-disty]>0;
 						cn.linkInfo|=FaceID.PXNZ;
 						this.calcNormal(cx,cy,cz,vpx,vnz,nyhasData,norm);
-						this.pushVB(vertex,cn,vpx,vnz,norm);
+						this.pushVB(vertex,cn,vnz,vpx,norm,nyhasData);
 						index.push(vn,vn+1,vn+2);
 						totalvn+=3;
 						vn+=3;
@@ -727,7 +732,7 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|nxlink|nzlink)>>6)&nyflag)!=0 || data[vid-distx-distz-disty]>0;
 						cn.linkInfo|=FaceID.NZNX;
 						this.calcNormal(cx,cy,cz,vnz,vnx,nyhasData, norm);
-						this.pushVB(vertex,cn,vnz,vnx,norm);
+						this.pushVB(vertex,cn,vnx,vnz,norm, nyhasData);
 						index.push(vn,vn+1,vn+2);
 						totalvn+=3;
 						vn+=3;
@@ -745,7 +750,7 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&nyflag)!=0 || data[vid-distx+distz-disty]>0;
 						cn.linkInfo|=FaceID.NXPZ
 						this.calcNormal(cx,cy,cz,vnx, vpz,nyhasData, norm);
-						this.pushVB(vertex,cn,vnx,vpz,norm);
+						this.pushVB(vertex,cn,vpz,vnx,norm,nyhasData);
 						index.push(vn,vn+1,vn+2);
 						totalvn+=3;
 						vn+=3;
@@ -765,7 +770,7 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|pzlink|pylink)>>6)&pxflag)!=0 || data[vid+distz+disty+distx]>0
 						cn.linkInfo|=FaceID.PZPY;
 						this.calcNormal(cx,cy,cz,vpz, vpy,pxhasData, norm);
-						this.pushVB(vertex,cn,vpz,vpy,norm);
+						this.pushVB(vertex,cn,vpy,vpz,norm,pxhasData);
 						index.push(vn,vn+1,vn+2);
 						totalvn+=3;
 						vn+=3;
@@ -782,7 +787,7 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|pylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz+disty+distx]>0
 						cn.linkInfo|=FaceID.PYNZ;
 						this.calcNormal(cx,cy,cz,vpy, vnz,pxhasData, norm);
-						this.pushVB(vertex,cn,vpy,vnz,norm);
+						this.pushVB(vertex,cn,vnz,vpy,norm,pxhasData);
 						index.push(vn,vn+1,vn+2);
 						totalvn+=3;
 						vn+=3;
@@ -800,7 +805,7 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|nylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz-disty+distx]>0
 						cn.linkInfo|=FaceID.NZNY;
 						this.calcNormal(cx,cy,cz,vnz, vny,pxhasData, norm);
-						this.pushVB(vertex,cn,vnz,vny,norm);
+						this.pushVB(vertex,cn,vny,vnz,norm,pxhasData);
 						index.push(vn,vn+1,vn+2);
 						totalvn+=3;
 						vn+=3;
