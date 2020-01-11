@@ -546,12 +546,7 @@ export class SurfaceNetSmoother {
 					linkinfo==v4f ||linkinfo==v5f ||linkinfo==v6f ||linkinfo==v7f ){
 					}
 				else{
-				if (cn.posx < ox - 0.5) cn.posx = ox - 0.5;
-				if (cn.posx > ox + 0.5) cn.posx = ox + 0.5;
-				if (cn.posy < oy - 0.5) cn.posy = oy - 0.5;
-				if (cn.posy > oy + 0.5) cn.posy = oy + 0.5;
-				if (cn.posz < oz - 0.5) cn.posz = oz - 0.5;
-				if (cn.posz > oz + 0.5) cn.posz = oz + 0.5;
+					
 				}
 			}
 		}

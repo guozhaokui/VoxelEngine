@@ -19,3 +19,27 @@ VR键盘
     https://www.mdpi.com/2227-7080/7/2/31/htm
 
 	
+
+voxel
+	https://web.archive.org/web/20170713094715if_/http://www.frankpetterson.com/publications/dualcontour/dualcontour.pdf
+	https://lists.blender.org/pipermail/bf-committers/2011-March/030758.html	
+
+	https://www.cse.wustl.edu/~taoju/
+
+
+https://stackoverflow.com/questions/6485908/basic-dual-contouring-theory	
+
+
+平滑方法：
+	收缩法：
+		缺点：
+		内圈效果肯定不对
+		角会有凸起
+		不会出现圆滑的效果
+
+voxel数据
+	实际数据是边上的数据
+	1. 相当于错位一下，每个格子存的是(-1,-1,-1)位置处的边，这样每个格子能存一条边的一个值
+	2. 格子保存自己所有边的数据，见hermit data
+hermit data
+	

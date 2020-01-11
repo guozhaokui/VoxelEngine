@@ -125,9 +125,9 @@ async function main() {
 	for(let z=0; z<s; z++){
 		for(let y=0; y<s; y++){
 			for(let x=0; x<s; x++){
-				let dx = x-c; dx/=21;
-				let dy = y-c; dy/=21;
-				let dz = z-c; dz/=21;
+				let dx = x-c; dx/=61;
+				let dy = y-c; dy/=61;
+				let dz = z-c; dz/=61;
 				let r = Math.sqrt(dx*dx+dy*dy+dz*dz)-1;
 				if(r<0)r=1;
 				else r=-1;
@@ -152,7 +152,7 @@ async function main() {
 
 	// 测试形状
 	//test data end
-	let ss = 90;
+	let ss = 40;
 	switch(ss){
 		case 0:
 			vox.to(2,2,2,true);
@@ -210,7 +210,7 @@ async function main() {
 	//m2.relaxSurfaceNet(12);
 
 	var mtl = new BlinnPhongMaterial();
-	mtl.cull = RenderState.CULL_NONE;
+	//mtl.cull = RenderState.CULL_NONE;
 	mtl.blend = RenderState.BLEND_ENABLE_ALL;
 	mtl.blendSrc = RenderState.BLENDPARAM_SRC_ALPHA;
 	mtl.blendDst = RenderState.BLENDPARAM_ONE_MINUS_SRC_ALPHA;
@@ -218,7 +218,7 @@ async function main() {
 
 	if(true){
 		let rmeshes:MeshSprite3D[]=[];
-		for(let i=0; i<1000; i++){
+		for(let i=0; i<10; i++){
 			m2.relaxSurfaceNet(1);
 			let meshes = m2.toMeshes();
 			meshes.forEach(mesh => {
@@ -227,7 +227,7 @@ async function main() {
 				rmeshes.push(cmesh);
 				scene.addChild(cmesh);
 				let c = cmesh.meshRenderer.bounds.getCenter();
-				cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
+				//cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
 			});
 
 			await delay(200);
@@ -245,7 +245,7 @@ async function main() {
 		cmesh.meshRenderer.sharedMaterial = mtl;
 		scene.addChild(cmesh);
 		let c = cmesh.meshRenderer.bounds.getCenter();
-		cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
+		//cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
 	});
 }
 
