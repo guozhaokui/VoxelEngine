@@ -152,10 +152,13 @@ async function main() {
 
 	// 测试形状
 	//test data end
-	let ss = 40;
+	let ss = 1100;
 	switch(ss){
 		case 0:
 			vox.to(2,2,2,true);
+			break;
+		case 100:
+			vox.fillbox(2,2,2,4,4,4);
 			break;
 		case 1:
 			vox.to(2,2,5,true).px().px();

@@ -27,6 +27,7 @@ import { Vector2 } from "laya/d3/math/Vector2";
  * 
  * 注意：
  * 	边界在外面，对应空心的
+ *  200112 改成边界是实心的了。
  */
 
 /**
@@ -57,16 +58,19 @@ const enum FACEIDSTARTPOS{
 	v=13		//6+7
 }
 const enum FaceID{
+	// XY平面
 	PXPY=1<<FACEIDSTARTPOS.v,	// px,py
 	PYNX=2<<FACEIDSTARTPOS.v,	// py,nx
 	NXNY=4<<FACEIDSTARTPOS.v,	
 	NYPX=8<<FACEIDSTARTPOS.v,
 
+	// XZ平面
 	PZPX=16<<FACEIDSTARTPOS.v,
 	PXNZ=32<<FACEIDSTARTPOS.v,
 	NZNX=64<<FACEIDSTARTPOS.v,
 	NXPZ=128<<FACEIDSTARTPOS.v,
 
+	// YZ平面
 	PZPY=256<<FACEIDSTARTPOS.v,
 	PYNZ=512<<FACEIDSTARTPOS.v,
 	NZNY=1024<<FACEIDSTARTPOS.v,
@@ -118,7 +122,7 @@ export class SurfaceNetNode {
 
 	// 相邻信息
 	linkInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有表面节点。
-	// 中间7个表示某个方向有数据，用来提供法线信息。第7个仅表示其他方向（斜着的），因为不关心斜着的方向，但是又要用来判断边界。
+	// 中间7个表示某个方向没有数据，用来提供法线信息。第7个仅表示其他方向（斜着的），因为不关心斜着的方向，但是又要用来判断边界。
 	// 高12个bit表示哪个方向已经建立三角形了，避免重复创建。每个平面四个
 
 	// 每次处理的时候会把自己加到对方，同时把对方加到自己。 用id是一个位置，比对象更容易维护.
@@ -323,40 +327,39 @@ export class SurfaceNetSmoother {
 			data[id + nb[25]] > 0);
 			*/
 		// 不考虑斜着的数据
-		if (data[id] > 0) return 0;
+		if (data[id] <= 0) return 0;
 		let ret = 0;
-		data[id + nb[0]] > 0 && (ret |= neighborFlag[0]);
-		data[id + nb[1]] > 0 && (ret |= neighborFlag[1]);
-		data[id + nb[2]] > 0 && (ret |= neighborFlag[2]);
-		data[id + nb[3]] > 0 && (ret |= neighborFlag[3]);
-		data[id + nb[4]] > 0 && (ret |= neighborFlag[4]);
-		data[id + nb[5]] > 0 && (ret |= neighborFlag[5]);
-		data[id + nb[6]] > 0 && (ret |= neighborFlag[6]);
-		data[id + nb[7]] > 0 && (ret |= neighborFlag[7]);
-		data[id + nb[8]] > 0 && (ret |= neighborFlag[8]);
-		data[id + nb[9]] > 0 && (ret |= neighborFlag[9]);
-		data[id + nb[10]] > 0 && (ret |= neighborFlag[10]);
-		data[id + nb[11]] > 0 && (ret |= neighborFlag[11]);
-		data[id + nb[12]] > 0 && (ret |= neighborFlag[12]);
-		data[id + nb[13]] > 0 && (ret |= neighborFlag[13]);
-		data[id + nb[14]] > 0 && (ret |= neighborFlag[14]);
-		data[id + nb[15]] > 0 && (ret |= neighborFlag[15]);
-		data[id + nb[16]] > 0 && (ret |= neighborFlag[16]);
-		data[id + nb[17]] > 0 && (ret |= neighborFlag[17]);
-		data[id + nb[18]] > 0 && (ret |= neighborFlag[18]);
-		data[id + nb[19]] > 0 && (ret |= neighborFlag[19]);
-		data[id + nb[20]] > 0 && (ret |= neighborFlag[20]);
-		data[id + nb[21]] > 0 && (ret |= neighborFlag[21]);
-		data[id + nb[22]] > 0 && (ret |= neighborFlag[22]);
-		data[id + nb[23]] > 0 && (ret |= neighborFlag[23]);
-		data[id + nb[24]] > 0 && (ret |= neighborFlag[24]);
-		data[id + nb[25]] > 0 && (ret |= neighborFlag[25]);
+		data[id + nb[0]] <= 0 && (ret |= neighborFlag[0]);
+		data[id + nb[1]] <= 0 && (ret |= neighborFlag[1]);
+		data[id + nb[2]] <= 0 && (ret |= neighborFlag[2]);
+		data[id + nb[3]] <= 0 && (ret |= neighborFlag[3]);
+		data[id + nb[4]] <= 0 && (ret |= neighborFlag[4]);
+		data[id + nb[5]] <= 0 && (ret |= neighborFlag[5]);
+		data[id + nb[6]] <= 0 && (ret |= neighborFlag[6]);
+		data[id + nb[7]] <= 0 && (ret |= neighborFlag[7]);
+		data[id + nb[8]] <= 0 && (ret |= neighborFlag[8]);
+		data[id + nb[9]] <= 0 && (ret |= neighborFlag[9]);
+		data[id + nb[10]] <= 0 && (ret |= neighborFlag[10]);
+		data[id + nb[11]] <= 0 && (ret |= neighborFlag[11]);
+		data[id + nb[12]] <= 0 && (ret |= neighborFlag[12]);
+		data[id + nb[13]] <= 0 && (ret |= neighborFlag[13]);
+		data[id + nb[14]] <= 0 && (ret |= neighborFlag[14]);
+		data[id + nb[15]] <= 0 && (ret |= neighborFlag[15]);
+		data[id + nb[16]] <= 0 && (ret |= neighborFlag[16]);
+		data[id + nb[17]] <= 0 && (ret |= neighborFlag[17]);
+		data[id + nb[18]] <= 0 && (ret |= neighborFlag[18]);
+		data[id + nb[19]] <= 0 && (ret |= neighborFlag[19]);
+		data[id + nb[20]] <= 0 && (ret |= neighborFlag[20]);
+		data[id + nb[21]] <= 0 && (ret |= neighborFlag[21]);
+		data[id + nb[22]] <= 0 && (ret |= neighborFlag[22]);
+		data[id + nb[23]] <= 0 && (ret |= neighborFlag[23]);
+		data[id + nb[24]] <= 0 && (ret |= neighborFlag[24]);
+		data[id + nb[25]] <= 0 && (ret |= neighborFlag[25]);
 		return ret;
 	}
 
 	/**
 	 * 创建表面节点网，这个网上的点是距离值为0的点
-	 * 不允许出现粗细为1的形状，会被忽略
 	 * 数据格式先假设为 y 向上
 	 * @param data 值只能是0或者1
 	 */
@@ -649,9 +652,9 @@ export class SurfaceNetSmoother {
 					(pxlink & FaceID.PYNX)==0 && (pylink&FaceID.NYPX)==0
 					) {// 检查是否能构成四边形
 					// 检查是否已经创建了
-					let nzHasData = (((linkinfo | pxlink | pylink) >> 6)&nzflag)!=0 ||data[vid+distx+disty-distz]>0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
+					let nzHasData = (((linkinfo | pxlink | pylink) >> 6)&pzflag)!=0 ||data[vid+distx+disty+distz]<=0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
 					cn.linkInfo |=FaceID.PXPY;
-					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	// 下面是实心
+					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	
 					this.pushVB(vertex, cn, vpy, vpx, norm,nzHasData);
 					index.push(vn, vn + 1, vn + 2);
 					totalvn += 3;
@@ -667,7 +670,7 @@ export class SurfaceNetSmoother {
 				if (pylink & nxflag && nxlink & pyflag &&
 					(pylink & FaceID.NXNY)==0 && (nxlink &FaceID.PXPY)==0
 					) {// 检查是否能构成四边形
-					let nzHasData = (((linkinfo | pylink | nxlink) >> 6)&nzflag)!=0 || data[vid+disty-distx-distz]>0;	// nz是否有数据。任何一个有就算
+					let nzHasData = (((linkinfo | pylink | nxlink) >> 6)&pzflag)!=0 || data[vid+disty-distx+distz]<=0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.PYNX;
 					this.calcNormal(cx, cy, cz, vpy, vnx, nzHasData, norm);	// 下面是实心
 					this.pushVB(vertex, cn, vnx, vpy, norm,nzHasData);
@@ -686,7 +689,7 @@ export class SurfaceNetSmoother {
 				if (nxlink & nyflag && nylink & nxflag &&
 					(nxlink & FaceID.NYPX)==0 && (nylink &FaceID.PYNX)==0
 					) {// 检查是否能构成四边形
-					let nzHasData = (((linkinfo | nxlink | nylink) >> 6)&nzflag)!=0 ||data[vid-distx-disty-distz]>0;	// nz是否有数据。任何一个有就算
+					let nzHasData = (((linkinfo | nxlink | nylink) >> 6)&pzflag)!=0 ||data[vid-distx-disty+distz]<=0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.NXNY;
 					this.calcNormal(cx, cy, cz, vnx, vny, nzHasData, norm);	// 下面是实心
 					this.pushVB(vertex, cn, vny, vnx, norm,nzHasData);
@@ -706,7 +709,7 @@ export class SurfaceNetSmoother {
 				let nzlink = vnz.linkInfo;
 				if(pxlink&nzflag && nzlink&pxflag &&
 					(nzlink&FaceID.PZPX)==0 && (pxlink&FaceID.NZNX)==0){
-						let nyhasData = (((linkinfo|pxlink|nzlink)>>6)&nyflag)!=0 || data[vid+distx-distz-disty]>0;
+						let nyhasData = (((linkinfo|pxlink|nzlink)>>6)&pyflag)!=0 || data[vid+distx-distz+disty]<=0;
 						cn.linkInfo|=FaceID.PXNZ;
 						this.calcNormal(cx,cy,cz,vpx,vnz,nyhasData,norm);
 						this.pushVB(vertex,cn,vnz,vpx,norm,nyhasData);
@@ -724,7 +727,7 @@ export class SurfaceNetSmoother {
 				let nxlink = vnx.linkInfo;
 				if(nzlink&nxflag && nxlink&nzflag &&
 					(nzlink&FaceID.NZNX)==0 && (nxlink&FaceID.PXNZ)==0){
-						let nyhasData = (((linkinfo|nxlink|nzlink)>>6)&nyflag)!=0 || data[vid-distx-distz-disty]>0;
+						let nyhasData = (((linkinfo|nxlink|nzlink)>>6)&pyflag)!=0 || data[vid-distx-distz+disty]<=0;
 						cn.linkInfo|=FaceID.NZNX;
 						this.calcNormal(cx,cy,cz,vnz,vnx,nyhasData, norm);
 						this.pushVB(vertex,cn,vnx,vnz,norm, nyhasData);
@@ -742,7 +745,7 @@ export class SurfaceNetSmoother {
 				let pzlink = vpz.linkInfo;
 				if(nxlink&pzflag && pzlink&nxflag &&
 					(nxlink&FaceID.PZPX)==0 && (pzlink&FaceID.NZNX)==0){
-						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&nyflag)!=0 || data[vid-distx+distz-disty]>0;
+						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&pyflag)!=0 || data[vid-distx+distz+disty]<=0;
 						cn.linkInfo|=FaceID.NXPZ
 						this.calcNormal(cx,cy,cz,vnx, vpz,nyhasData, norm);
 						this.pushVB(vertex,cn,vpz,vnx,norm,nyhasData);
@@ -762,7 +765,7 @@ export class SurfaceNetSmoother {
 				let pylink = vpy.linkInfo;
 				if(pzlink&pyflag && pylink&pzflag &&
 					(pzlink&FaceID.PYNZ)==0&&(pylink&FaceID.NYPZ)==0){
-						let pxhasData = (((linkinfo|pzlink|pylink)>>6)&pxflag)!=0 || data[vid+distz+disty+distx]>0
+						let pxhasData = (((linkinfo|pzlink|pylink)>>6)&nxflag)!=0 || data[vid+distz+disty-distx]<=0
 						cn.linkInfo|=FaceID.PZPY;
 						this.calcNormal(cx,cy,cz,vpz, vpy,pxhasData, norm);
 						this.pushVB(vertex,cn,vpy,vpz,norm,pxhasData);
@@ -779,7 +782,7 @@ export class SurfaceNetSmoother {
 				let nzlink = vnz.linkInfo;
 				if(pylink&nzflag && nzlink&pyflag &&
 					(pylink&FaceID.NZNY)==0&&(nzlink&FaceID.PZPY)==0){
-						let pxhasData = (((linkinfo|pylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz+disty+distx]>0
+						let pxhasData = (((linkinfo|pylink|nzlink)>>6)&nxflag)!=0 || data[vid-distz+disty-distx]<=0
 						cn.linkInfo|=FaceID.PYNZ;
 						this.calcNormal(cx,cy,cz,vpy, vnz,pxhasData, norm);
 						this.pushVB(vertex,cn,vnz,vpy,norm,pxhasData);
@@ -797,7 +800,7 @@ export class SurfaceNetSmoother {
 				let nylink = vny.linkInfo;
 				if(nzlink&nyflag && nylink&nzflag &&
 					(nzlink&FaceID.NYPZ)==0&&(nylink&FaceID.PYNZ)==0){	// NY->PY  PZ->NZ
-						let pxhasData = (((linkinfo|nylink|nzlink)>>6)&pxflag)!=0 || data[vid-distz-disty+distx]>0
+						let pxhasData = (((linkinfo|nylink|nzlink)>>6)&nxflag)!=0 || data[vid-distz-disty-distx]<=0
 						cn.linkInfo|=FaceID.NZNY;
 						this.calcNormal(cx,cy,cz,vnz, vny,pxhasData, norm);
 						this.pushVB(vertex,cn,vny,vnz,norm,pxhasData);
@@ -818,7 +821,7 @@ export class SurfaceNetSmoother {
 				index.length = 0;
 			}
 		}
-
+ 
 		if (index.length > 0) {
 			let vert = new Float32Array(vertex);
 			let idx = new Uint16Array(index);
