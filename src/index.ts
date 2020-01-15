@@ -120,7 +120,7 @@ async function main() {
 	vox.fill(-1);
 
 	// 球
-	///*
+	/*
 	let c=(s/2)|0
 	for(let z=0; z<s; z++){
 		for(let y=0; y<s; y++){
@@ -135,7 +135,7 @@ async function main() {
 			}
 		}
 	}
-	//*/
+	*/
 	// 盒子
 	/*
 	for (let z = 2; z < 40; z++) {
@@ -152,7 +152,7 @@ async function main() {
 
 	// 测试形状
 	//test data end
-	let ss = 1100;
+	let ss = 10;
 	switch(ss){
 		case 0:
 			vox.to(2,2,2,true);
@@ -204,7 +204,11 @@ async function main() {
 			vox.to(3,2,3,true);
 			vox.to(4,2,3,true).py();
 			vox.to(4,2,4,true);
-		break;
+			break;
+		case 10:
+			vox.fillbox(2,2,2,6,5,5,1);
+			vox.fillbox(2,5,2,6,6,4,1);
+			break;
 	}
 
 
@@ -219,7 +223,7 @@ async function main() {
 	mtl.blendDst = RenderState.BLENDPARAM_ONE_MINUS_SRC_ALPHA;
 	mtl.depthTest = RenderState.DEPTHTEST_LESS;
 
-	if(true){
+	if(false){
 		let rmeshes:MeshSprite3D[]=[];
 		for(let i=0; i<10; i++){
 			m2.relaxSurfaceNet(1);

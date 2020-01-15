@@ -98,6 +98,12 @@ var neighborFlag = [
 	0, 0, 0, 0, 1 << AdjNode.NY, 0, 0, 0, 0
 ];
 
+// 全局只执行一次
+for (let i = 0; i < 26; i++) {
+	if (neighborFlag[i] == 0) neighborFlag[i] = 1 << AdjNode.NN;	// 只是表示有
+	neighborFlag[i] = neighborFlag[i] << 6;
+}
+
 
 const InvDir = [];
 InvDir[AdjNode.PX] = AdjNode.NX;
@@ -384,8 +390,6 @@ export class SurfaceNetSmoother {
 		for (let i = 0; i < 26; i++) {
 			let ndir = neighborDir[i];
 			neighbors[i] = ndir[0] + ndir[1] * dy + ndir[2] * dz;
-			if (neighborFlag[i] == 0) neighborFlag[i] = 1 << AdjNode.NN;	// 只是表示有
-			neighborFlag[i] = neighborFlag[i] << 6;
 		}
 
 		let nets = this.surfacenet;
@@ -423,7 +427,6 @@ export class SurfaceNetSmoother {
 
 		// 看所有的节点是否有相邻点。 没有的会被消掉（只能消除单个点，所以可能还有多个独立部分）
 		// TODO 这个合到上面应该会更快
-		let netNodes: SurfaceNetNode[] = [];
 		for (let cn of nets) {
 			//TODO
 			if (cn == undefined)
@@ -455,12 +458,9 @@ export class SurfaceNetSmoother {
 				nexn.linkInfo |= (1 << AdjNode.NZ);
 			}
 			if (cn.linkeNodeNum > 0) {
-				netNodes[id] = cn;
-				this.getAdjInfo(cn.voxID);
 				this.dbgSurfaceNet.push(cn);
 			}
 		}
-		nets = this.surfacenet = netNodes;
 	}
 
 	/**
@@ -571,6 +571,7 @@ export class SurfaceNetSmoother {
 		} else {
 			Vector3.cross(d2, d1, norm);
 		}
+		Vector3.normalize(norm,norm);
 	}
 
 	private pushVB(vb: number[], v0: SurfaceNetNode, v1: SurfaceNetNode, v2: SurfaceNetNode, norm: Vector3, order12:boolean=true) {
@@ -652,6 +653,7 @@ export class SurfaceNetSmoother {
 					(pxlink & FaceID.PYNX)==0 && (pylink&FaceID.NYPX)==0
 					) {// 检查是否能构成四边形
 					// 检查是否已经创建了
+					// 任何一个节点的z+1没有数据 || 对角节点的z+1为空。 现在linkinfo记录的是哪个方向没有数据
 					let nzHasData = (((linkinfo | pxlink | pylink) >> 6)&pzflag)!=0 ||data[vid+distx+disty+distz]<=0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
 					cn.linkInfo |=FaceID.PXPY;
 					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	
