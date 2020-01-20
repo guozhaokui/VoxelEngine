@@ -120,14 +120,14 @@ async function main() {
 	vox.fill(-1);
 
 	// 球
-	/*
+	///*
 	let c=(s/2)|0
 	for(let z=0; z<s; z++){
 		for(let y=0; y<s; y++){
 			for(let x=0; x<s; x++){
-				let dx = x-c; dx/=61;
-				let dy = y-c; dy/=61;
-				let dz = z-c; dz/=61;
+				let dx = x-c; dx/=31;
+				let dy = y-c; dy/=31;
+				let dz = z-c; dz/=31;
 				let r = Math.sqrt(dx*dx+dy*dy+dz*dz)-1;
 				if(r<0)r=1;
 				else r=-1;
@@ -135,7 +135,7 @@ async function main() {
 			}
 		}
 	}
-	*/
+	//*/
 	// 盒子
 	/*
 	for (let z = 2; z < 40; z++) {
@@ -152,7 +152,7 @@ async function main() {
 
 	// 测试形状
 	//test data end
-	let ss = 10;
+	let ss = 110;
 	switch(ss){
 		case 0:
 			vox.to(2,2,2,true);
@@ -214,7 +214,7 @@ async function main() {
 
 	let m2 = new SurfaceNetSmoother();
 	m2.createSurfaceNet(vox.data, vox.dims);
-	//m2.relaxSurfaceNet(12);
+	m2.relaxSurfaceNet(11);
 
 	var mtl = new BlinnPhongMaterial();
 	//mtl.cull = RenderState.CULL_NONE;
@@ -254,6 +254,9 @@ async function main() {
 		let c = cmesh.meshRenderer.bounds.getCenter();
 		//cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
 	});
+
+	let wire = m2.getWireFrame();
+	scene.addChild(wire);
 }
 
 main();

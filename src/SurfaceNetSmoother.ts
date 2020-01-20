@@ -6,6 +6,9 @@ import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
 import { Camera } from "laya/d3/core/Camera";
 import { Ray } from "laya/d3/math/Ray";
 import { Vector2 } from "laya/d3/math/Vector2";
+import { SimplifyMesh } from "./SimplifyMesh";
+import { PixelLineSprite3D } from "laya/d3/core/pixelLine/PixelLineSprite3D";
+import { Color } from "laya/d3/math/Color";
 
 /**
  * 取实心的地方为-1，空心的为1，则对于边界处的空格子，其中心的值为0，移动范围是 (-1,1)
@@ -126,6 +129,10 @@ export class SurfaceNetNode {
 	tmpy = 0;
 	tmpz = 0;
 
+	normx=0;
+	normy=0;
+	normz=0;
+
 	// 相邻信息
 	linkInfo = 0; 		// 前6个bit，每个bit表示对应的相邻位是否有表面节点。
 	// 中间7个表示某个方向没有数据，用来提供法线信息。第7个仅表示其他方向（斜着的），因为不关心斜着的方向，但是又要用来判断边界。
@@ -139,6 +146,7 @@ export class SurfaceNetNode {
 	// 以后放到 adjinfo 中
 
 	//nextNodes:SurfaceNets[]=[];
+	color=0b1111111111111111;	//565格式
 
 	resetTarget() {
 		this.tmpx = this.tmpy = this.tmpz = 0;
@@ -184,6 +192,7 @@ let int1 = new Uint32Array(2);
 export class SurfaceNetSmoother {
 	private static d1 = new Vector3();
 	private static d2 = new Vector3();
+	private static VERTEXSIZE=10;
 
 	private surfacenet: SurfaceNetNode[] = [];
 	private dbgSurfaceNet: SurfaceNetNode[] = [];	//
@@ -484,9 +493,6 @@ export class SurfaceNetSmoother {
 		let distx = dist[0];
 		let disty = dist[1];
 		let distz = dist[2];
-		let xflag = 1 << AdjNode.PX;
-		let yflag = 1 << AdjNode.PY;
-		let zflag = 1 << AdjNode.PZ;
 		let nets = this.dbgSurfaceNet;
 		let nn = nets.length;
 		let dims = this.dims;
@@ -517,15 +523,15 @@ export class SurfaceNetSmoother {
 				let cn = nets[ni];
 				let cid = cn.voxID;
 				let adjinfo = cn.linkInfo;
-				if (adjinfo & xflag) {
+				if (adjinfo & pxflag) {
 					let nxn = netDict[cid + distx];	// TODO 注意这里可能会绕到错误的地方
 					cn.adjbynode(nxn);
 				}
-				if (adjinfo & yflag) {
+				if (adjinfo & pyflag) {
 					let nyn = netDict[cid + disty];
 					cn.adjbynode(nyn);
 				}
-				if (adjinfo & zflag) {
+				if (adjinfo & pzflag) {
 					let nzn = netDict[cid + distz];
 					cn.adjbynode(nzn);
 				}
@@ -534,16 +540,17 @@ export class SurfaceNetSmoother {
 			// 朝目标移动。
 			for (let ni = 0; ni < nn; ni++) {
 				let cn = nets[ni];
-				let voxid = cn.voxID;
+				//let voxid = cn.voxID;
 				let ln = cn.linkeNodeNum;	// 这里除是为了效率
-				cn.tmpx /= ln;
-				cn.tmpy /= ln;
-				cn.tmpz /= ln;
 
-				let ox = voxid % dims[0]
-				let oy = int1[1] = voxid / dist[1];	// y = id/(xsize*zsize)
-				let oz = int1[0] = voxid / dims[0] % dims[2];	// z = id/xsize%zsize. x部分变成小数被丢掉，剩下的是 y*zsize+z
-				cn.step(k);
+				//let ox = voxid % dims[0]
+				//let oy = int1[1] = voxid / dist[1];	// y = id/(xsize*zsize)
+				//let oz = int1[0] = voxid / dims[0] % dims[2];	// z = id/xsize%zsize. x部分变成小数被丢掉，剩下的是 y*zsize+z
+				//cn.step(k);
+				cn.posx=cn.tmpx/ln;
+				cn.posy=cn.tmpy/ln;
+				cn.posz=cn.tmpz/ln;
+
 				let linkinfo = cn.linkInfo&0b111111;
 				if(linkinfo==v0f || linkinfo==v1f ||linkinfo==v2f ||linkinfo==v3f ||
 					linkinfo==v4f ||linkinfo==v5f ||linkinfo==v6f ||linkinfo==v7f ){
@@ -575,23 +582,47 @@ export class SurfaceNetSmoother {
 	}
 
 	private pushVB(vb: number[], v0: SurfaceNetNode, v1: SurfaceNetNode, v2: SurfaceNetNode, norm: Vector3, order12:boolean=true) {
-		vb.push(v0.posx, v0.posy, v0.posz, norm.x, norm.y, norm.z);
+		vb.push(v0.posx, v0.posy, v0.posz, norm.x, norm.y, norm.z,1,1,1,1);
 		if(order12){
-			vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
-			vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
+			vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z,1,1,1,1);
+			vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z,1,1,1,1);
 		}else{
-			vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z);
-			vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z);
+			vb.push(v2.posx, v2.posy, v2.posz, norm.x, norm.y, norm.z,1,1,1,1);
+			vb.push(v1.posx, v1.posy, v1.posz, norm.x, norm.y, norm.z,1,1,1,1);
 		}
 	}
 
+	private pushFace(vb:number[], ib:number[], v0:SurfaceNetNode, v1:SurfaceNetNode, v2:SurfaceNetNode, norm:Vector3,order12=true){
+		let vertsz = SurfaceNetSmoother.VERTEXSIZE;
+		let v0id = v0.vertexID;
+		let v1id = v1.vertexID;
+		let v2id = v2.vertexID;
+		if(order12){
+			ib.push(v0id,v1id,v2id);
+		}else{
+			ib.push(v0id,v2id,v1id);
+		}
+
+		let v0p = v0id*vertsz+3;
+		let v1p = v1id*vertsz+3;
+		let v2p = v2id*vertsz+3;
+		vb[v0p++]+=norm.x; vb[v0p++]+=norm.y; vb[v0p++]+=norm.z;
+		vb[v1p++]+=norm.x; vb[v1p++]+=norm.y; vb[v1p++]+=norm.z;
+		vb[v2p++]+=norm.x; vb[v2p++]+=norm.y; vb[v2p++]+=norm.z;
+		v0.normx+=norm.x; v0.normy+=norm.y; v0.normz+=norm.z;
+		v1.normx+=norm.x; v1.normy+=norm.y; v1.normz+=norm.z;
+		v2.normx+=norm.x; v2.normy+=norm.y; v2.normz+=norm.z;
+	}
+
 	toMeshes() {
+		//TODO 平滑效果的还没有做超过64k的处理
+		let polygon = false;
 		console.time('tomesh');
 		let vertex: number[] = [];
 		let index: number[] = [];
 		let vn = 0;
 		let totalvn = 0;
-		var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL");
+		var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,COLOR");
 		let norm = new Vector3();
 		let ret: Mesh[] = [];
 		let distx = this.dist[0];
@@ -609,12 +640,19 @@ export class SurfaceNetSmoother {
 		let nets = this.dbgSurfaceNet;
 		let data = this.data;
 		let n = nets.length;
-		// 先添加顶点，记录顶点id
-		/*
-		for (let i = 0; i < n; i++) {
-			let cn = nets[i];
+		if(!polygon){
+			// 先添加顶点，记录顶点id
+			for (let i = 0; i < n; i++) {
+				let cn = nets[i];
+				let color = cn.color;
+				let b = (color&0x1f)/0x1f;
+				let g = ((color>>5)&0x3f)/0x3f;
+				let r = ((color>>11)&0x1f)/0x1f;
+				vertex.push(cn.posx,cn.posy,cn.posz,0,0,0, r,g,b,1);
+				cn.vertexID=i;
+			}
 		}
-		*/
+
 		for (let i = 0; i < n; i++) {
 			let cn = nets[i];
 			let cx = cn.posx;
@@ -657,10 +695,14 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | pxlink | pylink) >> 6)&pzflag)!=0 ||data[vid+distx+disty+distz]<=0;	// nz是否有数据。任何一个有就算. // 可能对角点对应的nz有数据
 					cn.linkInfo |=FaceID.PXPY;
 					this.calcNormal(cx, cy, cz, vpx, vpy, nzHasData, norm);	
-					this.pushVB(vertex, cn, vpy, vpx, norm,nzHasData);
-					index.push(vn, vn + 1, vn + 2);
-					totalvn += 3;
-					vn += 3;
+					if(polygon){
+						this.pushVB(vertex, cn, vpy, vpx, norm,nzHasData);
+						index.push(vn, vn + 1, vn + 2);
+						totalvn += 3;
+						vn += 3;
+					}else{
+						this.pushFace(vertex,index,cn,vpy,vpx,norm,nzHasData);
+					}
 				}
 			}
 			if (bpy && bnx) {
@@ -675,10 +717,14 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | pylink | nxlink) >> 6)&pzflag)!=0 || data[vid+disty-distx+distz]<=0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.PYNX;
 					this.calcNormal(cx, cy, cz, vpy, vnx, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vnx, vpy, norm,nzHasData);
-					index.push(vn, vn + 1, vn + 2);
-					totalvn += 3;
-					vn += 3;
+					if(polygon){
+						this.pushVB(vertex, cn, vnx, vpy, norm,nzHasData);
+						index.push(vn, vn + 1, vn + 2);
+						totalvn += 3;
+						vn += 3;
+					}else{
+						this.pushFace(vertex,index,cn,vnx,vpy,norm,nzHasData);
+					}
 				}
 			 }
 			if (bnx && bny) {
@@ -694,10 +740,14 @@ export class SurfaceNetSmoother {
 					let nzHasData = (((linkinfo | nxlink | nylink) >> 6)&pzflag)!=0 ||data[vid-distx-disty+distz]<=0;	// nz是否有数据。任何一个有就算
 					cn.linkInfo |=FaceID.NXNY;
 					this.calcNormal(cx, cy, cz, vnx, vny, nzHasData, norm);	// 下面是实心
-					this.pushVB(vertex, cn, vny, vnx, norm,nzHasData);
-					index.push(vn, vn + 1, vn + 2);
-					totalvn += 3;
-					vn += 3;
+					if(polygon){
+						this.pushVB(vertex, cn, vny, vnx, norm,nzHasData);
+						index.push(vn, vn + 1, vn + 2);
+						totalvn += 3;
+						vn += 3;
+					}else{
+						this.pushFace(vertex,index,cn,vny,vnx,norm,nzHasData);
+					}
 				}
 			 }
 			if (bny && bpx) {  }
@@ -714,10 +764,14 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|pxlink|nzlink)>>6)&pyflag)!=0 || data[vid+distx-distz+disty]<=0;
 						cn.linkInfo|=FaceID.PXNZ;
 						this.calcNormal(cx,cy,cz,vpx,vnz,nyhasData,norm);
-						this.pushVB(vertex,cn,vnz,vpx,norm,nyhasData);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						if(polygon){
+							this.pushVB(vertex,cn,vnz,vpx,norm,nyhasData);
+							index.push(vn,vn+1,vn+2);
+							totalvn+=3;
+							vn+=3;
+						}else{
+							this.pushFace(vertex,index,cn,vnz,vpx,norm,nyhasData);
+						}
 					}
 			 }
 
@@ -732,10 +786,14 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|nxlink|nzlink)>>6)&pyflag)!=0 || data[vid-distx-distz+disty]<=0;
 						cn.linkInfo|=FaceID.NZNX;
 						this.calcNormal(cx,cy,cz,vnz,vnx,nyhasData, norm);
-						this.pushVB(vertex,cn,vnx,vnz,norm, nyhasData);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						if(polygon){
+							this.pushVB(vertex,cn,vnx,vnz,norm, nyhasData);
+							index.push(vn,vn+1,vn+2);
+							totalvn+=3;
+							vn+=3;
+						}else{
+							this.pushFace(vertex,index,cn,vnx,vnz,norm,nyhasData);
+						}
 					}
 			}
 
@@ -750,10 +808,14 @@ export class SurfaceNetSmoother {
 						let nyhasData = (((linkinfo|nxlink|pzlink)>>6)&pyflag)!=0 || data[vid-distx+distz+disty]<=0;
 						cn.linkInfo|=FaceID.NXPZ
 						this.calcNormal(cx,cy,cz,vnx, vpz,nyhasData, norm);
-						this.pushVB(vertex,cn,vpz,vnx,norm,nyhasData);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						if(polygon){
+							this.pushVB(vertex,cn,vpz,vnx,norm,nyhasData);
+							index.push(vn,vn+1,vn+2);
+							totalvn+=3;
+							vn+=3;
+						}else{
+							this.pushFace(vertex,index,cn,vpz,vnx,norm,nyhasData);
+						}
 					}
 			 }
 			if (bnz && bpx) { }
@@ -770,10 +832,14 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|pzlink|pylink)>>6)&nxflag)!=0 || data[vid+distz+disty-distx]<=0
 						cn.linkInfo|=FaceID.PZPY;
 						this.calcNormal(cx,cy,cz,vpz, vpy,pxhasData, norm);
-						this.pushVB(vertex,cn,vpy,vpz,norm,pxhasData);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						if(polygon){
+							this.pushVB(vertex,cn,vpy,vpz,norm,pxhasData);
+							index.push(vn,vn+1,vn+2);
+							totalvn+=3;
+							vn+=3;
+						}else{
+							this.pushFace(vertex,index,cn,vpy,vpz,norm,pxhasData);
+						}
 					}
 			}
 			if (bpy && bnz ) { 
@@ -787,10 +853,14 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|pylink|nzlink)>>6)&nxflag)!=0 || data[vid-distz+disty-distx]<=0
 						cn.linkInfo|=FaceID.PYNZ;
 						this.calcNormal(cx,cy,cz,vpy, vnz,pxhasData, norm);
-						this.pushVB(vertex,cn,vnz,vpy,norm,pxhasData);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						if(polygon){
+							this.pushVB(vertex,cn,vnz,vpy,norm,pxhasData);
+							index.push(vn,vn+1,vn+2);
+							totalvn+=3;
+							vn+=3;
+						}else{
+							this.pushFace(vertex,index,cn,vnz,vpy,norm,pxhasData);
+						}
 					}
 
 			}
@@ -805,10 +875,14 @@ export class SurfaceNetSmoother {
 						let pxhasData = (((linkinfo|nylink|nzlink)>>6)&nxflag)!=0 || data[vid-distz-disty-distx]<=0
 						cn.linkInfo|=FaceID.NZNY;
 						this.calcNormal(cx,cy,cz,vnz, vny,pxhasData, norm);
-						this.pushVB(vertex,cn,vny,vnz,norm,pxhasData);
-						index.push(vn,vn+1,vn+2);
-						totalvn+=3;
-						vn+=3;
+						if(polygon){
+							this.pushVB(vertex,cn,vny,vnz,norm,pxhasData);
+							index.push(vn,vn+1,vn+2);
+							totalvn+=3;
+							vn+=3;
+						}else{
+							this.pushFace(vertex,index,cn,vny,vnz,norm,pxhasData);
+						}
 					}				
 			}
 
@@ -824,15 +898,88 @@ export class SurfaceNetSmoother {
 			}
 		}
  
+		// 规格化法线		这个现在没有用
+		for(let i=0; i<n; i++){
+			let cn = nets[i];
+			let nx = cn.normx;
+			let ny = cn.normy;
+			let nz = cn.normz;
+			let l = nx*nx+ny*ny+nz*nz;
+			if(l>1e-6){
+				cn.normx/=l;
+				cn.normy/=l;
+				cn.normz/=l;
+			}else{
+				cn.normx=cn.normy=cn.normz=0;
+			}
+		}
+
 		if (index.length > 0) {
 			let vert = new Float32Array(vertex);
 			let idx = new Uint16Array(index);
 			ret.push((PrimitiveMesh as any)._createMesh(vertDecl, vert, idx) as Mesh);
+			/*
+			let r = this.simplifyMesh(vert,idx);
+			ret.push((PrimitiveMesh as any)._createMesh(vertDecl, r.vb, r.ib) as Mesh);
+			*/
 		}
 		console.timeEnd('tomesh');
 		console.log('totalVertex=', totalvn);
+		//TEST
+		//this.simplifyMesh(null,null);
+		//TEST
 		return ret;
 	}
 
+	getWireFrame(){
+		let nets = this.dbgSurfaceNet;
+		let dict = this.surfacenet;
+		let n = nets.length;
+		let dist = this.dist;
+		let distx = dist[0];
+		let disty = dist[1];
+		let distz = dist[2];
+		let pxflag = 1 << AdjNode.PX;
+		let pyflag = 1 << AdjNode.PY;
+		let pzflag = 1 << AdjNode.PZ;
+
+		let pix = new PixelLineSprite3D(64*1024);
+		//pix.addLine()
+		for(let i=0; i<n; i++){
+			let cn = nets[i];
+			let cid = cn.voxID;
+			let linkinfo = cn.linkInfo;
+			pixStart.setValue(cn.posx+cn.normx*0.1,cn.posy+cn.normy*0.1,cn.posz+cn.normz*0.1);
+			if(linkinfo&pxflag){
+				let vn = dict[cid+distx];
+				pixEnd.setValue(vn.posx+vn.normx*0.1,vn.posy+vn.normy*0.1,vn.posz+vn.normz*0.1);
+				pix.addLine(pixStart,pixEnd,xcolor,xcolor);
+			}
+			if(linkinfo&pyflag){
+				let vn = dict[cid+disty];
+				pixEnd.setValue(vn.posx+vn.normx*0.1,vn.posy+vn.normy*0.1,vn.posz+vn.normz*0.1);
+				pix.addLine(pixStart,pixEnd,ycolor,ycolor);
+			}
+			if(linkinfo&pzflag){
+				let vn = dict[cid+distz];
+				pixEnd.setValue(vn.posx+vn.normx*0.1,vn.posy+vn.normy*0.1,vn.posz+vn.normz*0.1);
+				pix.addLine(pixStart,pixEnd,zcolor,zcolor);
+			}
+		}
+		return pix;
+	}
+
+	simplifyMesh(vb:Float32Array,ib:Uint16Array){
+		let sm = new SimplifyMesh();
+		sm.init(vb,ib);
+		sm.simplify_mesh(0.1);
+		return sm.genMesh();
+	}
 }
+
+let pixStart = new Vector3();
+let pixEnd = new Vector3();
+let xcolor = new Color(1,0,0,1);
+let ycolor = new Color(0,1,0,1);
+let zcolor = new Color(0,0,1,1);
 
