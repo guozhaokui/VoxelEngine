@@ -18,6 +18,11 @@ import { MarchingCubes } from "./MarchingCubes";
 import { SurfaceNetSmoother } from "./SurfaceNetSmoother";
 import { RenderState } from "laya/d3/core/material/RenderState";
 import { delay } from "./Async";
+import { download } from "./loader/Async";
+import { SimplifyMesh } from "./SimplifyMesh";
+import { VertexMesh } from "laya/d3/graphics/Vertex/VertexMesh";
+import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
+import { Mesh } from "laya/d3/resource/models/Mesh";
 
 //
 let scene: Scene3D;
@@ -111,7 +116,23 @@ class voxdata{
 	}
 }
 
+async function testSimplifyMesh(){
+	let dt:{vb:number[], ib:number[]}= await download('res/peiqiMesh.json');
+	let sm= new SimplifyMesh();
+	sm.init(new Float32Array(dt.vb), new Uint16Array(dt.ib));
+	//sm.simplify_mesh(2936);
+	sm.simplify_mesh(100);
+	var obj = sm.genMesh();
+	var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,COLOR");
+	
+	let cmesh = new MeshSprite3D((PrimitiveMesh as any)._createMesh(vertDecl, obj.vb, obj.ib) as Mesh);
+	//cmesh.meshRenderer.sharedMaterial = mtl;
+	scene.addChild(cmesh);
+}
+
 async function main() {
+	await testSimplifyMesh();
+
 	let s = 150;
 	let vox = new voxdata(s);
 	let distZ = s;
@@ -213,6 +234,7 @@ async function main() {
 
 
 	let m2 = new SurfaceNetSmoother();
+	//m2.loadSurfaceNet('res/peiqi.json');
 	m2.createSurfaceNet(vox.data, vox.dims);
 	m2.relaxSurfaceNet(11);
 

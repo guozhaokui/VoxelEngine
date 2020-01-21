@@ -9,6 +9,7 @@ import { Vector2 } from "laya/d3/math/Vector2";
 import { SimplifyMesh } from "./SimplifyMesh";
 import { PixelLineSprite3D } from "laya/d3/core/pixelLine/PixelLineSprite3D";
 import { Color } from "laya/d3/math/Color";
+import { download } from "./loader/Async";
 
 /**
  * 取实心的地方为-1，空心的为1，则对于边界处的空格子，其中心的值为0，移动范围是 (-1,1)
@@ -373,6 +374,12 @@ export class SurfaceNetSmoother {
 		return ret;
 	}
 
+	async loadSurfaceNet(url:string){
+		let dt:SurfaceNetNode[] = await download(url);
+		console.log('loaded. nodenum=', dt.length);
+		this.dbgSurfaceNet = dt;
+		debugger;
+	}
 	/**
 	 * 创建表面节点网，这个网上的点是距离值为0的点
 	 * 数据格式先假设为 y 向上
@@ -488,14 +495,12 @@ export class SurfaceNetSmoother {
 	public relaxSurfaceNet(it: number) {
 		console.time('relaxnet');
 		let netDict = this.surfacenet;
-		let k = this.relaxSpeed;
 		let dist = this.dist;
 		let distx = dist[0];
 		let disty = dist[1];
 		let distz = dist[2];
 		let nets = this.dbgSurfaceNet;
 		let nn = nets.length;
-		let dims = this.dims;
 
 		let pxflag = 1 << AdjNode.PX;
 		let pyflag = 1 << AdjNode.PY;

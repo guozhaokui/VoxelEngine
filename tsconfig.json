@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"target": "es6",
+		"target": "ESNext",
 		"baseUrl": "libs/layaAir",
 		"outDir": "bin/js",
         "noImplicitAny": true,

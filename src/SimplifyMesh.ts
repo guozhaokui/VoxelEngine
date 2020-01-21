@@ -318,30 +318,32 @@ export class SimplifyMesh {
 			//                // may not need to do this.
 			//                vertices[i].q = new SymetricMatrix();
 			//            }
+			console.time('init1')
+			let p1p0 = new Vector3();
+			let p2p0 = new Vector3();
 			for (let i: int = 0; i < triangles.length; i++) {
 				var t = triangles[i];
 				//TODO 效率
-				var n = new Vector3();
-				var p = new Array(3);
-				var p1p0 = new Vector3();
-				var p2p0 = new Vector3();
 
-				for (var j: int = 0; j < 3; j++) {
-					p[j] = vertices[t.v[j]].p;
-				}
+				let p0 = vertices[t.v[0]].p;
+				let p1 = vertices[t.v[1]].p;
+				let p2 = vertices[t.v[2]].p;
 
-				Vector3.subtract(p[1], p[0], p1p0);
-				Vector3.subtract(p[2], p[0], p2p0);
+				Vector3.subtract(p1, p0, p1p0);
+				Vector3.subtract(p2, p0, p2p0);
 
+				let n = new Vector3();
 				Vector3.cross(p1p0, p2p0, n);
 				Vector3.normalize(n, n);
 				t.n = n;
 
-				var tmp = new SymetricMatrix().makePlane(n.x, n.y, n.z, -Vector3.dot(n, p[0]));
+				var tmp = new SymetricMatrix().makePlane(n.x, n.y, n.z, -Vector3.dot(n, p0));
 				for (var j: int = 0; j < 3; j++) {
 					vertices[t.v[j]].q.addSelf(tmp);
 				}
 			}
+
+			console.timeEnd('init1');
 
 			for (let i: int = 0; i < triangles.length; i++) {
 				// Calc Edge Error
