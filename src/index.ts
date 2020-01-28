@@ -116,15 +116,35 @@ class voxdata{
 	}
 }
 
-async function testSimplifyMesh(){
-	let dt:{vb:number[], ib:number[]}= await download('res/peiqiMesh.json');
+var perfdata:number[]=[];
+function testPerf(dt:{vb:number[], ib:number[]},it:int){
 	let sm= new SimplifyMesh();
+	let st = Date.now();
+	//console.time('simplifymesh');
+	//console.time('simp init');
 	sm.init(new Float32Array(dt.vb), new Uint16Array(dt.ib));
 	//sm.simplify_mesh(2936);
+	//console.timeEnd('simp init');
+	//console.time('simp simplify_mesh');
 	sm.simplify_mesh(100);
+	//console.timeEnd('simp simplify_mesh');
+	//console.time('simp tomesh');
 	var obj = sm.genMesh();
+	//console.timeEnd('simp tomesh');
+	//console.timeEnd('simplifymesh');
+	let tm = Date.now()-st;
+	perfdata.push(it,tm);
+	return obj;
+}
+
+async function testSimplifyMesh(){
+	let dt:{vb:number[], ib:number[]}= await download('res/peiqiMesh.json');
+	for(let i=0; i<100; i++){
+		testPerf(dt,i);
+	}
+	console.log(perfdata);
+	let obj = testPerf(dt,0);
 	var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,COLOR");
-	
 	let cmesh = new MeshSprite3D((PrimitiveMesh as any)._createMesh(vertDecl, obj.vb, obj.ib) as Mesh);
 	//cmesh.meshRenderer.sharedMaterial = mtl;
 	scene.addChild(cmesh);

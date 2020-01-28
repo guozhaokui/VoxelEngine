@@ -74,11 +74,13 @@ class SymetricMatrix {
 }
 
 class Triangle {
-	v = [0, 0, 0];// indices for array
+	/** 三个顶点的索引 */
+	v = [0, 0, 0];
 	err = [0, 0, 0, 0];// errors
 	deleted = false;
 	dirty = false;
-	n = new Vector3();
+	/** 平面的法线 */
+	n = new Vector3();	
 	candel = true;
 }
 
@@ -88,6 +90,7 @@ class Vertex {
 	color = new Vector3();
 	tstart = -1;
 	tcount = -1;
+	/** 当前的误差矩阵（与周围几个面） */
 	q = new SymetricMatrix();
 	border = false;
 	candel = true;
@@ -153,15 +156,16 @@ export class SimplifyMesh {
 		let Mesh_error = this.Mesh_error;
 		let Error_MAX = this.Error_MAX;
 		var i: int, il: int;
-		for (i = 0, il = this.triangles.length; i < il; i++) {
-			this.triangles[i].deleted = false;
+		let triangles = this.triangles;
+		for (i = 0, il = triangles.length; i < il; i++) {
+			triangles[i].deleted = false;
 		}
 
 		var deleted_triangles: int = 0;
 		var deleted0: boolean[] = [], deleted1: boolean[] = []; // std::vector<int>
-		var triangle_count: int = this.triangles.length;
+		var triangle_count: int = triangles.length;
 
-		for (var iteration: int = 0; iteration < 100; iteration++) {
+		for (var iteration = 0; iteration < 100; iteration++) {
 			if (triangle_count - deleted_triangles <= target_count) break;
 			if (Mesh_error > Error_MAX) break;
 
@@ -170,8 +174,8 @@ export class SimplifyMesh {
 				this.update_mesh(iteration);
 			}
 			// clear dirty flag
-			for (var j: int = 0; j < this.triangles.length; j++) {
-				this.triangles[j].dirty = false;
+			for (var j: int = 0; j < triangles.length; j++) {
+				triangles[j].dirty = false;
 			}
 
 			//
@@ -182,8 +186,8 @@ export class SimplifyMesh {
 			//
 			var threshold: Number = 0.000000001 * Math.pow(iteration + 3, agressiveness);
 			// remove vertices & mark deleted triangles
-			for (i = 0, il = this.triangles.length; i < il; i++) {
-				var t: Triangle = this.triangles[i];
+			for (i = 0, il = triangles.length; i < il; i++) {
+				var t = this.triangles[i];
 				if (t.err[3] > threshold || t.deleted || t.dirty || !t.candel) continue;
 
 				for (j = 0; j < 3; j++) {
@@ -308,7 +312,7 @@ export class SimplifyMesh {
 					this.Mesh_error += target.err[3];
 				}
 			}
-			console.log("update_mesh Mesh_error: ", this.Mesh_error)
+			//console.log("update_mesh Mesh_error: ", this.Mesh_error)
 			//            triangles.splice( dst );
 			this.resize(triangles, dst);
 		}
@@ -347,7 +351,7 @@ export class SimplifyMesh {
 
 			for (let i: int = 0; i < triangles.length; i++) {
 				// Calc Edge Error
-				var t: Triangle = triangles[i];
+				var t = triangles[i];
 				var pp = new Vector3();
 				for (var j: int = 0; j < 3; j++) {
 					t.err[j] = this.calculate_error(t.v[j], t.v[(j + 1) % 3], pp);
@@ -466,10 +470,10 @@ export class SimplifyMesh {
 	update_triangles(i0: int, v: Vertex, deleted: boolean[], deleted_triangles: int): int {
 		let refs = this.refs;
 		let triangles = this.triangles;
-		var p: Vector3 = new Vector3();
-		for (var k: int = 0; k < v.tcount; k++) {
+		var p = new Vector3();
+		for (var k = 0; k < v.tcount; k++) {
 			var r: Ref = refs[v.tstart + k];
-			var t: Triangle = triangles[r.tid];
+			var t = triangles[r.tid];
 			if (t.deleted) continue;
 			if (deleted[k]) {
 				t.deleted = true;
