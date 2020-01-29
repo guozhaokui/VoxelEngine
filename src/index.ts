@@ -139,10 +139,12 @@ function testPerf(dt:{vb:number[], ib:number[]},it:int){
 
 async function testSimplifyMesh(){
 	let dt:{vb:number[], ib:number[]}= await download('res/peiqiMesh.json');
-	for(let i=0; i<100; i++){
+	/*
+	for(let i=0; i<4; i++){
 		testPerf(dt,i);
 	}
 	console.log(perfdata);
+	*/
 	let obj = testPerf(dt,0);
 	var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,COLOR");
 	let cmesh = new MeshSprite3D((PrimitiveMesh as any)._createMesh(vertDecl, obj.vb, obj.ib) as Mesh);
