@@ -120,7 +120,7 @@ InvDir[AdjNode.NZ] = AdjNode.PZ;
 
 export class SurfaceNetNode {
 	voxID: int = 0;		// 最大允许1024**3。能反向得到xyz
-	vertexID:int=0;		// 三角形化用到
+	vertexID:int=0;		// 三角形化用到。如果要省内存，可以考虑上面的重用
 	/** 调整后的位置 优化的时候可以用byte表示相对调整位置*/
 	posx: number;
 	posy: number;

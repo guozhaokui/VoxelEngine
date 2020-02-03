@@ -254,8 +254,11 @@ export class SimplifyMesh {
 						var tcount = this.refs.length - tstart;
 
 						if (tcount <= v0.tcount) {
-							if (tcount)
+							// 如果有删掉的三角形
+							if (tcount){
+								// refs的 tstart开始的tcount个，移动到v0.tstart开始的地方
 								this.move(this.refs, v0.tstart, tstart, tcount);
+							}
 						}
 						else
 							// append
@@ -608,6 +611,13 @@ export class SimplifyMesh {
 				2 * m[6] * y + m[7] * z * z + 2 * m[8] * z + m[9];
 	}
 
+	/**
+	 * 
+	 * @param refs 
+	 * @param dest 
+	 * @param source 
+	 * @param count 
+	 */
 	move<T>(refs: T[], dest: int, source: int, count: int): void {
 		for (var i: int = 0; i < count; i++) {
 			refs[dest + i] = refs[source + i];

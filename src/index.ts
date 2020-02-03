@@ -56,15 +56,20 @@ grid.addToScene(scene);
 //let mesh = new MeshSprite3D(createVoxMesh({get:getdata},10,10,10,10,10,10,new Vector3(0,0,0), new Vector3(10,10,10)));
 //scene.addChild(mesh);
 //mesh.transform.localPosition = new Vector3(-5,-5,-5)
-/*
 let sidelen = 44;
 //let data = SphereData(-2,2,sidelen);
 let data = SphereData(-2, 2, sidelen);
 
 let isos = new SurfaceNets();
-//let mesh1 = isos.tomesh(data.data,data.dims);
+let mesh1 = isos.tomesh(data.data,data.dims);
+let meshes = polyToTriMesh(mesh1.vertices,mesh1.faces);
+meshes.forEach( mesh=>{
+	let cmesh = new MeshSprite3D(mesh);
+	scene.addChild(cmesh);
+});
+
+
 //test data
-*/
 
 class voxdata{
 	size:int=1;
@@ -148,12 +153,14 @@ async function testSimplifyMesh(){
 	let obj = testPerf(dt,0);
 	var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,COLOR");
 	let cmesh = new MeshSprite3D((PrimitiveMesh as any)._createMesh(vertDecl, obj.vb, obj.ib) as Mesh);
-	//cmesh.meshRenderer.sharedMaterial = mtl;
+	var mtl = new BlinnPhongMaterial();
+	cmesh.meshRenderer.sharedMaterial = mtl;
+	mtl.enableVertexColor=true;
 	scene.addChild(cmesh);
 }
 
 async function main() {
-	await testSimplifyMesh();
+	//await testSimplifyMesh();
 
 	let s = 150;
 	let vox = new voxdata(s);

@@ -32,10 +32,25 @@
 
  
 //Internal buffer, this may get resized at run time
+/** 能同时保存两层数据的buffer */
 var buffer = new Int32Array(4096);
 
+/**
+ *    6 ------7
+ *   /:      /|
+ *  / :     / |
+ * 4 ------5  |
+ * |  3 ---|--2
+ * |  /    | /
+ * | /     |/
+ * 0 ------1
+ * 
+ */
+
 export class SurfaceNets {
+	/** cube的12条边，每个占用2个所以24 */
 	cube_edges = new Int32Array(24);
+	/** 不同组合下的边表，一共2^8=256种 */
 	edge_table = new Int32Array(256);
 	constructor() {
 		let cube_edges = this.cube_edges;
@@ -81,10 +96,12 @@ export class SurfaceNets {
 
 		var x = new Int32Array(3);
 
-		/** 某个方向的相邻点的数组距离 */
+		/** 某个方向的相邻点的数组距离 TODO 改成y向上*/
 		var adjDist = new Int32Array([1, (xl + 1), (xl + 1) * (yl + 1)]);
 
+		/** 8个相邻格子的值 */
 		var grid = new Float32Array(8);
+		/** 偶数层还是奇数层？ */
 		var buf_no = 1;
 
 		//Resize buffer if necessary 
@@ -93,6 +110,7 @@ export class SurfaceNets {
 		}
 
 		//March over the voxel grid
+		// foreach z
 		for (x[2] = 0; x[2] < zl - 1; ++x[2], n += xl, buf_no ^= 1, adjDist[2] = -adjDist[2]) {
 
 			//m is the pointer into the buffer we are going to use.  
@@ -100,12 +118,17 @@ export class SurfaceNets {
 			//The contents of the buffer will be the indices of the vertices on the previous x/y slice of the volume
 			var m = 1 + (xl + 1) * (1 + buf_no * (yl + 1));
 
+			// foreach y
 			for (x[1] = 0; x[1] < yl - 1; ++x[1], ++n, m += 2)
+				// foreach z
 				for (x[0] = 0; x[0] < xl - 1; ++x[0], ++n, ++m) {
 
 					//Read in 8 field values around this vertex and store them in an array
 					//Also calculate 8-bit mask, like in marching cubes, so we can speed up sign checks later
-					var mask = 0, g = 0, idx = n;
+					// 每个格子找周围8个值记录下来，同时生成当前格子的mask值，mask记录哪个bit在内部
+					/** 8个顶点在内部的就设置1 */
+					var mask = 0;
+					let g = 0, idx = n;
 					for (var k = 0; k < 2; ++k, idx += xl * (yl - 2))
 						for (var j = 0; j < 2; ++j, idx += xl - 2)
 							for (var i = 0; i < 2; ++i, ++g, ++idx) {
@@ -115,20 +138,25 @@ export class SurfaceNets {
 							}
 
 					//Check for early termination if cell does not intersect boundary
+					// 全在内，全在外都停止
 					if (mask === 0 || mask === 0xff) {
 						continue;
 					}
 
 					//Sum up edge intersections
-					var edge_mask = edge_table[mask]
-						, v = [0.0, 0.0, 0.0]
-						, e_count = 0;
+					/** 哪条边有交点 */
+					var edge_mask = edge_table[mask];
+					/** 顶点 */
+					let  vert = [0.0, 0.0, 0.0];
+					/** 有交点的边的个数 */
+					let  e_count = 0;
 
 					//For every edge of the cube...
 					for (var i = 0; i < 12; ++i) {
 
 						//Use edge mask to check if it is crossed
 						if (!(edge_mask & (1 << i))) {
+							// 如果当前边没有交点
 							continue;
 						}
 
@@ -136,43 +164,48 @@ export class SurfaceNets {
 						++e_count;
 
 						//Now find the point of intersection
+						//e0,e1是边对应的顶点索引
 						var e0 = cube_edges[i << 1]       //Unpack vertices
-							, e1 = cube_edges[(i << 1) + 1]
-							, g0 = grid[e0]                 //Unpack grid values
-							, g1 = grid[e1]
-							, t = g0 - g1;                 //Compute point of intersection
+							, e1 = cube_edges[(i << 1) + 1];
+						//g0,g1是两个点的值
+						let  g0 = grid[e0]                 //Unpack grid values
+							, g1 = grid[e1];
+						let t = g0 - g1;                 //Compute point of intersection
 						if (Math.abs(t) > 1e-6) {
-							t = g0 / t;
+							t = g0 / t;	//t是交点的位置 t = -g0/(g1-g0) = g0/(g0-g1) = g0/t;
 						} else {
 							continue;
 						}
 
 						//Interpolate vertices and add up intersections (this can be done without multiplying)
+						// 这里是假设距离都是1
 						for (var j = 0, k = 1; j < 3; ++j, k <<= 1) {
 							var a = e0 & k
 								, b = e1 & k;
 							if (a !== b) {
-								v[j] += a ? 1.0 - t : t;
+								vert[j] += a ? 1.0 - t : t;
 							} else {
-								v[j] += a ? 1.0 : 0;
+								vert[j] += a ? 1.0 : 0;
 							}
 						}
 					}
 
 					//Now we just average the edge intersections and add them to coordinate
+					// 所有的交点的中心值，就是想要的顶点
 					var s = 1.0 / e_count;
 					for (var i = 0; i < 3; ++i) {
-						v[i] = x[i] + s * v[i];
+						vert[i] = x[i] + s * vert[i];
 					}
 
 					//Add vertex to buffer, store pointer to vertex index in buffer
 					buffer[m] = vertices.length;
-					vertices.push(v);
+					vertices.push(vert);
 
 					//Now we need to add faces together, to do this we just loop over 3 basis components
 					for (var i = 0; i < 3; ++i) {
 						//The first three entries of the edge_mask count the crossings along the edge
 						if (!(edge_mask & (1 << i))) {
+							// 如果当前方向边没有交点，则不必处理
 							continue;
 						}
 
@@ -181,6 +214,7 @@ export class SurfaceNets {
 							, iv = (i + 2) % 3;
 
 						//If we are on a boundary, skip it
+						// 在边界上（为什么没有考虑i的边界）
 						if (x[iu] === 0 || x[iv] === 0) {
 							continue;
 						}
@@ -190,10 +224,12 @@ export class SurfaceNets {
 							, dv = adjDist[iv];
 
 						//Remember to flip orientation depending on the sign of the corner.
+						// 连接相邻四个点。
 						if (mask & 1) {
-							faces.push([buffer[m], buffer[m - du], buffer[m - du - dv], buffer[m - dv]]);
-						} else {
+							// 如果当前cube在内部
 							faces.push([buffer[m], buffer[m - dv], buffer[m - du - dv], buffer[m - du]]);
+						} else {
+							faces.push([buffer[m], buffer[m - du], buffer[m - du - dv], buffer[m - dv]]);
 						}
 					}
 				}
