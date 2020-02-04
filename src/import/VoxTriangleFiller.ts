@@ -24,7 +24,7 @@ export class VoxTriangleFiller {
 	private nmax=[1,1,1];
 
     hascolor: boolean = false;
-    fillCB: (x:int,y:int,z:int, u:f32, v:f32)=>void; 	// x:int, y:int, z:int, u:number, v:number
+    fillCB: (x:int,y:int,z:int, dist:number)=>void; 	// x:int, y:int, z:int, u:number, v:number
 
     private interpolate(min: number, max: number, gradient: number) {
         return min + (max - min) * gradient;
@@ -108,25 +108,25 @@ export class VoxTriangleFiller {
 		let cb = this.fillCB;
 		let planed = this.planeD;
 
-		let hw=w/2*1.414;
+		let hw=12*w;
 		// 必须要上下都找，并且一直找到超出距离。因为这个可能倾斜着靠着轴
 		// 向上
-		let maxv = max[axis];
+		let maxv = max[axis]+1;
 		for(let xi=cx; xi<=maxv ;xi++ ){
 			// 计算中心位置到平面的距离
 			grid[axis]=xi;
 			let d1 = v1+normax*(xi+0.5)*w-planed;
 			if(d1<=hw&&d1>=-hw)
-				cb(grid[0],grid[1],grid[2],0,0);
+				cb(grid[0],grid[1],grid[2],d1);
 		}
 
 		// 向下
-		let minv = min[axis];
+		let minv = min[axis]-1;
 		for( let xi=cx-1; xi>=minv; xi--){
 			grid[axis]=xi;
 			let d1 = v1+normax*(xi+0.5)*w-planed;
 			if(d1<=hw&&d1>=-hw)
-				cb(grid[0],grid[1],grid[2],0,0);
+				cb(grid[0],grid[1],grid[2],d1);
 		}
 	}
 
@@ -214,7 +214,7 @@ export class VoxTriangleFiller {
 	 * 先填上v0,v1,v2
 	 * @param cb 
 	 */
-	fill(cb: (x:int,y:int,z:int, u:f32,v:f32)=>void){
+	fill(cb: (x:int,y:int,z:int, dist:number)=>void){
         let v0 = this.v0;
         let v1 = this.v1;
 		let v2 = this.v2;

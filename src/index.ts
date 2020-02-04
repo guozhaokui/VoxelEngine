@@ -46,7 +46,7 @@ var directionLight = (<DirectionLight>scene.addChild(new DirectionLight()));
 directionLight.color = new Vector3(0.6, 0.6, 0.6);
 //设置平行光的方向
 var mat = directionLight.transform.worldMatrix;
-mat.setForward(new Vector3(-1.0, -1.0, 1.0));
+mat.setForward(new Vector3(-1.0, -1.0, -1.0));
 directionLight.transform.worldMatrix = mat;
 
 let grid = new GridSurface(10, null, null);
@@ -55,7 +55,7 @@ grid.addToScene(scene);
 
 
 let mv = new Mesh2Voxel();
-mv.loadObj('res/volumeBody.obj',0.01);
+mv.loadObj('res/monkey.obj',0.02,scene);
 
 
 //let mesh = new MeshSprite3D(createVoxMesh({get:getdata},10,10,10,10,10,10,new Vector3(0,0,0), new Vector3(10,10,10)));
@@ -64,7 +64,7 @@ mv.loadObj('res/volumeBody.obj',0.01);
 let sidelen = 44;
 //let data = SphereData(-2,2,sidelen);
 let data = SphereData(-2, 2, sidelen);
-
+/*
 modifydata_snap(data.data,data.dims);
 modifydata_smooth(data.data,data.dims);
 modifydata_smooth(data.data,data.dims);
@@ -78,7 +78,7 @@ meshes.forEach( mesh=>{
 	let cmesh = new MeshSprite3D(mesh);
 	scene.addChild(cmesh);
 });
-
+*/
 
 function modifydata_snap(data:Float32Array,dims:number[]){
 	let i=0;
@@ -353,13 +353,13 @@ async function main() {
 	meshes.forEach(mesh => {
 		let cmesh = new MeshSprite3D(mesh);
 		cmesh.meshRenderer.sharedMaterial = mtl;
-		scene.addChild(cmesh);
+		//scene.addChild(cmesh);
 		let c = cmesh.meshRenderer.bounds.getCenter();
 		//cmesh.transform.localPosition = new Vector3(-c.x, -c.y, -c.z)
 	});
 
 	let wire = m2.getWireFrame();
-	scene.addChild(wire);
+	//scene.addChild(wire);
 }
 
 main();

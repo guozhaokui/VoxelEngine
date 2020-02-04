@@ -1,8 +1,12 @@
+import { Scene3D } from 'laya/d3/core/scene/Scene3D';
 import { VoxTriangleFiller } from "./VoxTriangleFiller";
 import { Laya } from "Laya";
 import { Handler } from "laya/utils/Handler";
 import { OBJLoader_mesh, OBJLoader_Material } from "../loader/objloader/ObjectFile";
 import { Texture2D } from "laya/resource/Texture2D";
+import { SurfaceNets } from "../SurfaceNets";
+import { polyToTriMesh } from "../Mesh";
+import { MeshSprite3D } from "laya/d3/core/MeshSprite3D";
 
 export class Mesh2Voxel{
 	trifiller=new VoxTriangleFiller();
@@ -12,11 +16,18 @@ export class Mesh2Voxel{
 	posBuffer:Float32Array;
 	faceBuffer:number[];
 
-    loadObj(url: string,gridsz:number): void {
+    loadObj(url: string,gridsz:number,scene:Scene3D): void {
         Laya.loader.load(url, new Handler(this, (data:string)=>{
 			let dt = this.voxelizeObjMesh(data,gridsz);
-			debugger;
-			/*
+			let isos = new SurfaceNets();
+			let mesh1 = isos.tomesh(dt.data,dt.dims);
+			
+			let meshes = polyToTriMesh(mesh1.vertices,mesh1.faces);
+			meshes.forEach( mesh=>{
+				let cmesh = new MeshSprite3D(mesh);
+				scene.addChild(cmesh);
+			});
+						/*
             let xn=this.gridXSize; let yn=this.gridYSize; let zn = this.gridZSize;
             let min=new Vec3(this.minx,this.miny,this.minz);
             let max=new Vec3(xn,yn,zn);
@@ -82,7 +93,10 @@ export class Mesh2Voxel{
 			vertex[cfi++]=cz;
 		}
 		
-		console.log(min,max);
+		let ext = 2*sz;
+		min[0]-=ext; min[1]-=ext; min[2]-=ext;
+		max[0]+=ext; max[1]+=ext; max[2]+=ext;
+
 
 		this.transMesh();
 
@@ -105,8 +119,8 @@ export class Mesh2Voxel{
 			let cy = vb[posst+1];
 			let cz = vb[posst+2];
 			vb[posst] = cx-minx;
-			vb[posst+1] = cz-minz;
-			vb[posst+2] = cy-miny;
+			vb[posst+2] = cz-minz;
+			vb[posst+1] = cy-miny;
 			posst+=3;
 		}
 	}
@@ -122,11 +136,21 @@ export class Mesh2Voxel{
 		var faceIndex = this.faceBuffer;
 		var vertexArray = this.posBuffer;
 		var faceNum = faceIndex.length / 3;
-		var fidSt = 0;
 
-		var miny=1000;
-		var maxy=-1000;
+		let dx = this.meshMax[0]-this.meshMin[0];
+		let dy = this.meshMax[1]-this.meshMin[1];
+		let dz = this.meshMax[2]-this.meshMin[2];
+		let dxs =Math.ceil( dx/gridSize);
+		let dys =Math.ceil(dy/gridSize);
+		let dzs = Math.ceil(dz/gridSize);
+		let sz = dxs*dys*dzs;
+		let ydist=dxs;
+		let zdist =dxs*dys;
+		let ret = new Float32Array(sz);
+		ret.fill(100);
+
 		trifiller.gridsz = gridSize;
+		var fidSt = 0;
 		for (var fi = 0; fi < faceNum; fi++) {
 			var v0id = faceIndex[fidSt++]*3;
 			var v1id = faceIndex[fidSt++]*3;
@@ -145,18 +169,41 @@ export class Mesh2Voxel{
 			trifiller.v2[1] = vertexArray[v2id+1];
 			trifiller.v2[2] = vertexArray[v2id+2];
 
-			trifiller.fill(function(x:number, y:number, z:number):void{
+			trifiller.fill(function(x:number, y:number, z:number,dist:number):void{
 				x = Math.round(x);
 				y = Math.round(y);
 				z = Math.round(z);
-				if(y<miny)miny=y;
-				if(y>maxy)maxy=y;
+				let pos = x+y*ydist+z*zdist;
+				dist = Math.round(dist/gridSize*127);
+				// 单个片组成模型相当于取交集。交集就是取大的
+				if(ret[pos]==100)ret[pos]=dist;
+				else if(ret[pos]<dist) ret[pos]=dist;
 			});
 		}
-		console.log(miny,maxy);
+		console.log('voxsize:',dxs,dys,dzs);
+		//this.fill(ret,[dxs,dys,dzs])
+		return {data:ret,dims:[dxs,dys,dzs]};
 	}
 
-	private fill(){
-
+	private fill(data:Float32Array, dims:number[]){
+		let xl = dims[0];
+		let yl = dims[1];
+		let zl = dims[2];
+		let ydist=xl;
+		let zdist=xl*yl;
+		let inner=false;
+		let lastoutter=true;
+		for(let z=0; z<zl; z++){
+			for(let y=0; y<yl; y++){
+				for(let x=0;x<xl; x++){
+					let d = data[x+y*ydist+z*zdist];
+					if(d<0){
+						lastoutter=false;
+					}else{
+						//if(lastoutter)
+					}
+				}
+			}
+		}
 	}
 }
