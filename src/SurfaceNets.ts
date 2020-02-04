@@ -96,7 +96,7 @@ export class SurfaceNets {
 
 		var x = new Int32Array(3);
 
-		/** 某个方向的相邻点的数组距离 TODO 改成y向上*/
+		/** 某个方向的相邻点的数组距离,+1是因为是下一个。 TODO 改成y向上*/
 		var adjDist = new Int32Array([1, (xl + 1), (xl + 1) * (yl + 1)]);
 
 		/** 8个相邻格子的值 */
@@ -116,6 +116,20 @@ export class SurfaceNets {
 			//m is the pointer into the buffer we are going to use.  
 			//This is slightly obtuse because javascript does not have good support for packed data structures, so we must use typed arrays :(
 			//The contents of the buffer will be the indices of the vertices on the previous x/y slice of the volume
+			// 第二行水平的下一个和第一行水平的下一个
+			// 
+			/**
+			 * 
+			 * 第一次是  |---m
+			 *          o- -|
+			 * o=m-du,m-dv
+			 * 
+			 * 第二次是  o---m
+			 *          |---|
+			 * 
+			 * 
+			 */
+
 			var m = 1 + (xl + 1) * (1 + buf_no * (yl + 1));
 
 			// foreach y
@@ -203,6 +217,7 @@ export class SurfaceNets {
 
 					//Now we need to add faces together, to do this we just loop over 3 basis components
 					for (var i = 0; i < 3; ++i) {
+						//yz平面，xz平面，xy平面
 						//The first three entries of the edge_mask count the crossings along the edge
 						if (!(edge_mask & (1 << i))) {
 							// 如果当前方向边没有交点，则不必处理

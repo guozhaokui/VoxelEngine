@@ -23,6 +23,7 @@ import { SimplifyMesh } from "./SimplifyMesh";
 import { VertexMesh } from "laya/d3/graphics/Vertex/VertexMesh";
 import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
 import { Mesh } from "laya/d3/resource/models/Mesh";
+import { Mesh2Voxel } from "./import/Mesh2Voxel";
 
 //
 let scene: Scene3D;
@@ -53,6 +54,10 @@ let grid = new GridSurface(10, null, null);
 grid.addToScene(scene);
 
 
+let mv = new Mesh2Voxel();
+mv.loadObj('res/volumeBody.obj',0.01);
+
+
 //let mesh = new MeshSprite3D(createVoxMesh({get:getdata},10,10,10,10,10,10,new Vector3(0,0,0), new Vector3(10,10,10)));
 //scene.addChild(mesh);
 //mesh.transform.localPosition = new Vector3(-5,-5,-5)
@@ -60,14 +65,61 @@ let sidelen = 44;
 //let data = SphereData(-2,2,sidelen);
 let data = SphereData(-2, 2, sidelen);
 
+modifydata_snap(data.data,data.dims);
+modifydata_smooth(data.data,data.dims);
+modifydata_smooth(data.data,data.dims);
+modifydata_smooth(data.data,data.dims);
+
 let isos = new SurfaceNets();
 let mesh1 = isos.tomesh(data.data,data.dims);
+
 let meshes = polyToTriMesh(mesh1.vertices,mesh1.faces);
 meshes.forEach( mesh=>{
 	let cmesh = new MeshSprite3D(mesh);
 	scene.addChild(cmesh);
 });
 
+
+function modifydata_snap(data:Float32Array,dims:number[]){
+	let i=0;
+	for(let z= 0; z<dims[2]; z++){
+		for(let y=0; y<dims[1]; y++){
+			for(let x=0; x<dims[0];x++,i++){
+				if(data[i]<0){
+					data[i]=-0.5;
+				}else if(data[i]>0){
+					data[i]=0.5;
+				}
+			}
+		}
+	}
+}
+
+function modifydata_smooth(data:Float32Array,dims:number[]){
+	let disty=dims[0];
+	let distz=dims[0]*dims[1];
+	function getData(x:int,y:int,z:int){
+		return data[x+y*disty+z*distz];
+	}
+	for(let z= 1; z<20-1; z++){
+		for(let y=1; y<dims[1]-1; y++){
+			for(let x=1; x<dims[0]-1;x++){
+				data[x+y*disty+z*distz]=(
+				getData(x,y+1,z)+getData(x+1,y+1,z)+getData(x-1,y+1,z)+
+				getData(x,y,z)+getData(x+1,y,z)+getData(x-1,y,z)+
+				getData(x,y-1,z)+getData(x+1,y-1,z)+getData(x-1,y-1,z)+
+
+				getData(x,y+1,z-1)+getData(x+1,y+1,z-1)+getData(x-1,y+1,z-1)+
+				getData(x,y,z-1)+getData(x+1,y,z-1)+getData(x-1,y,z-1)+
+				getData(x,y-1,z-1)+getData(x+1,y-1,z-1)+getData(x-1,y-1,z-1)+
+
+				getData(x,y+1,z+1)+getData(x+1,y+1,z+1)+getData(x-1,y+1,z+1)+
+				getData(x,y,z+1)+getData(x+1,y,z+1)+getData(x-1,y,z+1)+
+				getData(x,y-1,z+1)+getData(x+1,y-1,z+1)+getData(x-1,y-1,z+1))/27;
+			}
+		}
+	}
+}
 
 //test data
 
