@@ -146,8 +146,8 @@ export class Mesh2Voxel{
 		let sz = dxs*dys*dzs;
 		let ydist=dxs;
 		let zdist =dxs*dys;
-		let ret = new Float32Array(sz);
-		ret.fill(100);
+		let ret = new Int8Array(sz);
+		ret.fill(127);
 
 		trifiller.gridsz = gridSize;
 		var fidSt = 0;
@@ -175,32 +175,35 @@ export class Mesh2Voxel{
 				z = Math.round(z);
 				let pos = x+y*ydist+z*zdist;
 				dist = Math.round(dist/gridSize*127);
+				if(dist>127)dist=127;
+				if(dist<-127)dist=-127;
 				// 单个片组成模型相当于取交集。交集就是取大的
-				if(ret[pos]==100)ret[pos]=dist;
+				if(ret[pos]==127)ret[pos]=dist;
 				else if(ret[pos]<dist) ret[pos]=dist;
 			});
 		}
 		console.log('voxsize:',dxs,dys,dzs);
-		//this.fill(ret,[dxs,dys,dzs])
+		this.fill(ret,[dxs,dys,dzs])
 		return {data:ret,dims:[dxs,dys,dzs]};
 	}
 
-	private fill(data:Float32Array, dims:number[]){
+	private fill(data:Int8Array, dims:number[]){
 		let xl = dims[0];
 		let yl = dims[1];
 		let zl = dims[2];
 		let ydist=xl;
 		let zdist=xl*yl;
-		let inner=false;
-		let lastoutter=true;
+		let lastd = 1;
 		for(let z=0; z<zl; z++){
 			for(let y=0; y<yl; y++){
+				lastd=1;
 				for(let x=0;x<xl; x++){
 					let d = data[x+y*ydist+z*zdist];
-					if(d<0){
-						lastoutter=false;
+					if(d==127){
+						if(lastd<0)
+							data[x+y*ydist+z*zdist]=lastd;
 					}else{
-						//if(lastoutter)
+						lastd=d;
 					}
 				}
 			}

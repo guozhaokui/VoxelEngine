@@ -170,6 +170,7 @@ export function polyToTriMesh(vertexPos:number[][], quads:number[][]){
 	var vertDecl = VertexMesh.getVertexDeclaration("POSITION,NORMAL,UV");
 	let d1 = new Vector3();
 	let d2 = new Vector3();
+	let d3 = new Vector3();
 	let norm = new Vector3();
 	let ret:Mesh[]=[];
 	quads.forEach( (quad:number[])=>{
@@ -186,13 +187,20 @@ export function polyToTriMesh(vertexPos:number[][], quads:number[][]){
 		d2.y=v3[1]-v1[1];
 		d2.z=v3[2]-v1[2];
 		Vector3.cross(d2,d1,norm);
+		Vector3.normalize(norm,norm);
 		vertex.push(v1[0], v1[1], v1[2], norm.x,norm.y,norm.z, 0, 0);
 		vertex.push(v2[0], v2[1], v2[2], norm.x,norm.y,norm.z, 0, 0);
 		vertex.push(v3[0], v3[1], v3[2], norm.x,norm.y,norm.z, 0, 0);
 
 		// 顶点
 		for(let vi=3; vi<vnum; vi++){
-			var cv = vertexPos[quad[vi]];;
+			var cv = vertexPos[quad[vi]];
+			d3.x = cv[0]-v1[0];
+			d3.y = cv[1]-v1[1];
+			d3.z = cv[2]-v1[2];
+			Vector3.cross(d3,d2,norm);
+			Vector3.normalize(norm,norm);
+			let temp=d2; d2=d3; d3=temp;
 			vertex.push(cv[0], cv[1], cv[2], norm.x,norm.y,norm.z, 0, 0)
 		}
 
