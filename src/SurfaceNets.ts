@@ -205,11 +205,11 @@ export class SurfaceNets {
 					}
 
 					//Now we just average the edge intersections and add them to coordinate
-					// 所有的交点的中心值，就是想要的顶点
+					// 当前的xyz+所有的交点的中心值，就是想要的顶点
 					var s = 1.0 / e_count;
-					for (var i = 0; i < 3; ++i) {
-						vert[i] = x[i] + s * vert[i];
-					}
+					vert[0] = x[0]+s*vert[0];
+					vert[1] = x[1]+s*vert[1];
+					vert[2] = x[2]+s*vert[2];
 
 					//Add vertex to buffer, store pointer to vertex index in buffer
 					buffer[m] = vertices.length;
