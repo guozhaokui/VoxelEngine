@@ -32,7 +32,7 @@
 
  
 //Internal buffer, this may get resized at run time
-/** 能同时保存两层数据的buffer */
+/** 能同时保存两层数据的buffer。大小都扩展了1 ,用来找顶点索引，偶数层在0层，上是1，奇数层在1层，上是0*/
 var buffer = new Int32Array(4096);
 
 /**
@@ -40,7 +40,7 @@ var buffer = new Int32Array(4096);
  *   /:      /|
  *  / :     / |
  * 4 ------5  |
- * |  3 ---|--2
+ * |  2 ---|--3
  * |  /    | /
  * | /     |/
  * 0 ------1
@@ -72,6 +72,7 @@ export class SurfaceNets {
 		//Initialize the intersection table.
 		//  This is a 2^(cube configuration) ->  2^(edge configuration) map
 		//  There is one entry for each possible cube configuration, and the output is a 12-bit vector enumerating all edges crossing the 0-level.
+		// 8个节点的不同组合对应哪条边上会有交点
 		for (var i = 0; i < 256; ++i) {
 			var em = 0;
 			for (var j = 0; j < 24; j += 2) {
@@ -96,7 +97,7 @@ export class SurfaceNets {
 
 		var x = new Int32Array(3);
 
-		/** 某个方向的相邻点的数组距离,+1是因为是下一个。 TODO 改成y向上*/
+		/** 某个方向的相邻点的数组距离,+1是因为是下一个。+1可能是因为buffer是扩大了1的 TODO 改成y向上*/
 		var adjDist = new Int32Array([1, (xl + 1), (xl + 1) * (yl + 1)]);
 
 		/** 8个相邻格子的值 */
@@ -131,7 +132,6 @@ export class SurfaceNets {
 			 */
 
 			var m = 1 + (xl + 1) * (1 + buf_no * (yl + 1));
-
 			// foreach y
 			for (x[1] = 0; x[1] < yl - 1; ++x[1], ++n, m += 2)
 				// foreach z
@@ -207,12 +207,21 @@ export class SurfaceNets {
 					//Now we just average the edge intersections and add them to coordinate
 					// 当前的xyz+所有的交点的中心值，就是想要的顶点
 					var s = 1.0 / e_count;
-					vert[0] = x[0]+s*vert[0];
-					vert[1] = x[1]+s*vert[1];
-					vert[2] = x[2]+s*vert[2];
+					let dx = s*vert[0];
+					let dy = s*vert[1];
+					let dz = s*vert[2];
+					/*
+					dx = ((dx*32)|0)/32;
+					dy = ((dy*32)|0)/32;
+					dz = ((dz*32)|0)/32;
+					*/
+					vert[0] = x[0]+dx;
+					vert[1] = x[1]+dy;
+					vert[2] = x[2]+dz;
 
 					//Add vertex to buffer, store pointer to vertex index in buffer
 					buffer[m] = vertices.length;
+					//console.log('buff[m]',m,vertices.length,x)
 					vertices.push(vert);
 
 					//Now we need to add faces together, to do this we just loop over 3 basis components
@@ -230,6 +239,20 @@ export class SurfaceNets {
 
 						//If we are on a boundary, skip it
 						// 在边界上（为什么没有考虑i的边界）
+						/**
+						 * i=x轴
+						 * iu=y轴
+						 * iv=z轴
+						 * if(y==0 || z==0) continue;
+						 * 因为要取y-1的，所以不能是0
+						 * 
+						 * i=y轴
+						 * iu=z轴
+						 * iv=x轴
+						 * if(z==0||x==0) cotinue
+						 * 
+						 * 
+						 */
 						if (x[iu] === 0 || x[iv] === 0) {
 							continue;
 						}

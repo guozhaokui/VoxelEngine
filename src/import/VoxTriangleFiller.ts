@@ -12,8 +12,9 @@ export class VoxTriangleFiller {
 	private normArr=[0,0,0];
 	private planeD=0;
 	private hasnorm=false;
-	gridsz=1;
 	private curGrid:int[]=[0,0,0];
+	private triID:int=0;
+	public flipNormal=false;
 
     static tmpVec30 = new Vector3();
     static tmpVec31 = new Vector3();
@@ -34,7 +35,6 @@ export class VoxTriangleFiller {
     processScanLine(y: int,pa:int[], pb:int[], pc:int[], pd:int[], axisID:int): void {
 		let xid = (axisID+1)%3;
 		let yid = (axisID+2)%3;
-		let w = this.gridsz;
         // 水平线的处理，需要考虑谁在左边,
         // papb 可能的水平
         //   pb-----pa
@@ -62,8 +62,8 @@ export class VoxTriangleFiller {
         var gradient1 = pa[yid] != pb[yid] ? (y - pa[yid]) / (pb[yid] - pa[yid]) : (pa[xid] > pb[xid] ? 1 : 0);	// y的位置，0 在pa， 1在pb
         var gradient2 = pc[yid] != pd[yid] ? (y - pc[yid]) / (pd[yid] - pc[yid]) : (pc[xid] > pd[xid] ? 0 : 1); // pc-pd
 
-        var sx: int = Math.round(this.interpolate(pa[xid], pb[xid], gradient1));	// 
-        var ex: int = Math.round(this.interpolate(pc[xid], pd[xid], gradient2));
+        var sx: int = Math.round(this.interpolate(pa[xid], pb[xid], gradient1))-1;	// 扩大一下，防止投影面变化的地方漏了
+        var ex: int = Math.round(this.interpolate(pc[xid], pd[xid], gradient2))+1;
         //var su: number = this.interpolate(fpa[3], fpb[3], gradient1);
         //var eu: number = this.interpolate(fpc[3], fpd[3], gradient2);
         //var sv: number = this.interpolate(fpa[4], fpb[4], gradient1);
@@ -96,37 +96,47 @@ export class VoxTriangleFiller {
 	 * @param axis 射线方向,x=0,y=1,z=2
 	 */
 	private hitRange(min:int[], max:int[], grid:int[], norm:number[], d:number, axis:int){
-		let w = this.gridsz;
+		var maxd = 1.8;//
+		var mind =-2;
+
 		let nax  = (axis+1)%3;
 		let nnax = (axis+2)%3;
-		let fnax  = (grid[nax ]+0.5)*w;
-		let fnnax = (grid[nnax ]+0.5)*w;
+		let fnax  = (grid[nax ]+0.5);
+		let fnnax = (grid[nnax ]+0.5);
 		let v1 = (norm[nax]*fnax+norm[nnax]*fnnax);
 		let normax = norm[axis];
+		// fax是当前轴与平面的交点
 		let fax =(d - v1)/normax;
-		let cx = Math.round(fax/this.gridsz);
+		// 交点所在的格子
+		let cx = Math.round(fax);
 		let cb = this.fillCB;
 		let planed = this.planeD;
 
-		let hw=12*w;
 		// 必须要上下都找，并且一直找到超出距离。因为这个可能倾斜着靠着轴
 		// 向上
-		let maxv = max[axis]+1;
-		for(let xi=cx; xi<=maxv ;xi++ ){
-			// 计算中心位置到平面的距离
+		var stD:number = v1 + cx*normax - planed;	//起点的d
+		var d1:number = stD;		
+		var maxv = max[axis];
+		for (var xi = cx; xi <= maxv ; xi++ ) {
 			grid[axis]=xi;
-			let d1 = v1+normax*(xi+0.5)*w-planed;
-			if(d1<=hw&&d1>=-hw)
-				cb(grid[0],grid[1],grid[2],d1);
+			//dbgCheck (grid[0], grid[1], grid[2]);
+			// 计算中心位置到平面的距离
+			if (d1 > maxd) break;	// 范围是0到maxd，
+			if (d1 <mind) break;	// 多一点是为了能设置普通内部
+			cb(grid[0], grid[1], grid[2], d1);
+			d1 += normax;
 		}
 
 		// 向下
-		let minv = min[axis]-1;
-		for( let xi=cx-1; xi>=minv; xi--){
-			grid[axis]=xi;
-			let d1 = v1+normax*(xi+0.5)*w-planed;
-			if(d1<=hw&&d1>=-hw)
-				cb(grid[0],grid[1],grid[2],d1);
+		var minv = min[axis];
+		d1 = stD - normax;
+		for( var xi=cx-1; xi>=minv; xi--){
+			grid[axis] = xi;
+			//dbgCheck (grid[0], grid[1], grid[2]);
+			if (d1 > maxd) break;	// 范围是0到maxd，
+			if (d1 <mind) break;	// 多一点是为了能设置普通内部
+			cb(grid[0], grid[1], grid[2], d1);
+			d1 -= normax;
 		}
 	}
 
@@ -222,18 +232,17 @@ export class VoxTriangleFiller {
 		let nv0=this.nV0;
 		let nv1=this.nV1;
 		let nv2=this.nV2;
-		let gridsz = this.gridsz;
-		nv0[0] = (v0[0]/gridsz)|0;	//这个不能用round, 因为就是要定位在哪个格子中
-		nv0[1] = (v0[1]/gridsz)|0;
-		nv0[2] = (v0[2]/gridsz)|0;
+		nv0[0] = v0[0]|0;	//这个不能用round, 因为就是要定位在哪个格子中
+		nv0[1] = v0[1]|0;
+		nv0[2] = v0[2]|0;
 
-		nv1[0] = (v1[0]/gridsz)|0;
-		nv1[1] = (v1[1]/gridsz)|0;
-		nv1[2] = (v1[2]/gridsz)|0;
+		nv1[0] = v1[0]|0;
+		nv1[1] = v1[1]|0;
+		nv1[2] = v1[2]|0;
 
-		nv2[0] = (v2[0]/gridsz)|0;
-		nv2[1] = (v2[1]/gridsz)|0;
-		nv2[2] = (v2[2]/gridsz)|0;
+		nv2[0] = v2[0]|0;
+		nv2[1] = v2[1]|0;
+		nv2[2] = v2[2]|0;
 
 		let norm = this.norm;
 		if(!this.hasnorm){
@@ -245,9 +254,15 @@ export class VoxTriangleFiller {
 			e2.x = v2[0] - v0[0];
 			e2.y = v2[1] - v0[1];
 			e2.z = v2[2] - v0[2];
-			Vector3.cross(e1, e2, norm);
+			if(this.flipNormal){
+				Vector3.cross(e2, e1, norm);	
+			}else{
+				Vector3.cross(e1, e2, norm);
+			}
 			Vector3.normalize(norm,norm);
 		}
+		if(norm.x==0 && norm.y==0 && norm.z==0)
+			return;
 
 		this.normArr[0]=norm.x;
 		this.normArr[1]=norm.y;
@@ -262,6 +277,15 @@ export class VoxTriangleFiller {
 		max[0] = Math.max(nv0[0],nv1[0],nv2[0]);
 		max[1] = Math.max(nv0[1],nv1[1],nv2[1]);
 		max[2] = Math.max(nv0[2],nv1[2],nv2[2]);
+
+		// 扩大一下
+		min[0] -= 1; if (min[0] < 0) min[0] = 0;
+		min[1] -= 1; if (min[1] < 0) min[1] = 0;
+		min[2] -= 1; if (min[2] < 0) min[2] = 0;
+		max[0] += 1; 
+		max[1] += 1; 
+		max[2] += 1; 
+
 		// 确定投影方向
 		let normx = Math.abs(norm.x);
 		let normy = Math.abs(norm.y);

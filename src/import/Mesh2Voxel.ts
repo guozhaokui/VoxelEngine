@@ -8,6 +8,14 @@ import { SurfaceNets } from "../SurfaceNets";
 import { polyToTriMesh } from "../Mesh";
 import { MeshSprite3D } from "laya/d3/core/MeshSprite3D";
 
+function smoothMesh(vertices:number[][], indices:number[][]){
+	let fi=0;
+	let smoothR = 10;
+	for(fi=0; fi<indices.length; fi++){
+
+	}
+}
+
 export class Mesh2Voxel{
 	trifiller=new VoxTriangleFiller();
 	objmtl:OBJLoader_Material|null=null;
@@ -20,6 +28,14 @@ export class Mesh2Voxel{
         Laya.loader.load(url, new Handler(this, (data:string)=>{
 			let dt = this.voxelizeObjMesh(data,gridsz);
 			let isos = new SurfaceNets();
+			//TEST
+			/*
+			dt.data = new Int8Array(3**3);
+			dt.data.fill(5);
+			dt.data[13]=-5;
+			dt.dims=[3,3,3]
+			*/
+			//TEST
 			let mesh1 = isos.tomesh(dt.data,dt.dims);
 			
 			let meshes = polyToTriMesh(mesh1.vertices,mesh1.faces);
@@ -132,6 +148,7 @@ export class Mesh2Voxel{
 	 * @param gridSize 
 	 */
 	renderToVoxel(gridSize:number) {
+		let scale = 1/gridSize;			// 为了格子化全部是1，这里用缩放的方法
 		var trifiller = this.trifiller;
 		var faceIndex = this.faceBuffer;
 		var vertexArray = this.posBuffer;
@@ -140,16 +157,15 @@ export class Mesh2Voxel{
 		let dx = this.meshMax[0]-this.meshMin[0];
 		let dy = this.meshMax[1]-this.meshMin[1];
 		let dz = this.meshMax[2]-this.meshMin[2];
-		let dxs =Math.ceil( dx/gridSize);
-		let dys =Math.ceil(dy/gridSize);
-		let dzs = Math.ceil(dz/gridSize);
+		let dxs =Math.ceil( dx*scale);
+		let dys =Math.ceil(dy*scale);
+		let dzs = Math.ceil(dz*scale);
 		let sz = dxs*dys*dzs;
 		let ydist=dxs;
 		let zdist =dxs*dys;
 		let ret = new Int8Array(sz);
 		ret.fill(127);
 
-		trifiller.gridsz = gridSize;
 		var fidSt = 0;
 		for (var fi = 0; fi < faceNum; fi++) {
 			var v0id = faceIndex[fidSt++]*3;
@@ -157,33 +173,35 @@ export class Mesh2Voxel{
 			var v2id = faceIndex[fidSt++]*3;
 
 			//三个顶点的贴图必然一致。只取第一个就行了
-			trifiller.v0[0] = vertexArray[v0id];
-			trifiller.v0[1] = vertexArray[v0id+1];
-			trifiller.v0[2] = vertexArray[v0id+2];
+			trifiller.v0[0] = vertexArray[v0id]*scale;
+			trifiller.v0[1] = vertexArray[v0id+1]*scale;
+			trifiller.v0[2] = vertexArray[v0id+2]*scale;
 
-			trifiller.v1[0] = vertexArray[v1id];
-			trifiller.v1[1] = vertexArray[v1id+1];
-			trifiller.v1[2] = vertexArray[v1id+2];
+			trifiller.v1[0] = vertexArray[v1id]*scale;
+			trifiller.v1[1] = vertexArray[v1id+1]*scale;
+			trifiller.v1[2] = vertexArray[v1id+2]*scale;
 
-			trifiller.v2[0] = vertexArray[v2id];
-			trifiller.v2[1] = vertexArray[v2id+1];
-			trifiller.v2[2] = vertexArray[v2id+2];
+			trifiller.v2[0] = vertexArray[v2id]*scale;
+			trifiller.v2[1] = vertexArray[v2id+1]*scale;
+			trifiller.v2[2] = vertexArray[v2id+2]*scale;
 
 			trifiller.fill(function(x:number, y:number, z:number,dist:number):void{
 				x = Math.round(x);
 				y = Math.round(y);
 				z = Math.round(z);
 				let pos = x+y*ydist+z*zdist;
-				dist = Math.round(dist/gridSize*127);
+				dist = Math.round(dist*127);
 				if(dist>127)dist=127;
 				if(dist<-127)dist=-127;
 				// 单个片组成模型相当于取交集。交集就是取大的
 				if(ret[pos]==127)ret[pos]=dist;
-				else if(ret[pos]<dist) ret[pos]=dist;
+				else{
+					ret[pos]=Math.max(ret[pos],dist);
+				} if(ret[pos]<dist) ret[pos]=dist;
 			});
 		}
 		console.log('voxsize:',dxs,dys,dzs);
-		this.fill(ret,[dxs,dys,dzs])
+		//this.fill(ret,[dxs,dys,dzs])
 		return {data:ret,dims:[dxs,dys,dzs]};
 	}
 

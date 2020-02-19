@@ -207,6 +207,7 @@ export class SimplifyMesh {
 				var tri = triangles[i];
 				if (tri.err[3] > threshold || tri.deleted || tri.dirty || !tri.candel) continue;
 
+				// 检查每个点的误差
 				for (j = 0; j < 3; j++) {
 					if (tri.err[j] < threshold) {
 						// 如果边 j 的误差满足条件
@@ -290,6 +291,14 @@ export class SimplifyMesh {
 
 	/**
 	 * 新的点p 对v0所在的所有三角形来说，会不会导致法线翻转
+	 * 下面三个三角形，上面有个横边ab,a移动到b，穿越了cd边，会导致三角形1翻转
+	 * a---------b
+	 * \   3    /
+	 *  \ 1 d 2/
+	 *   \  | /
+	 *    \  /
+	 *      V
+	 *      c
 	 * 对i0,v0来说，删掉 i1,v1 点
 	 * @param p 
 	 * @param i0 
@@ -564,6 +573,9 @@ export class SimplifyMesh {
 		return deleted_triangles;
 	}
 
+	/**
+	 * 
+	 */
 	compact_mesh(): void {
 		let vertices = this.vertices;
 		let triangles = this.triangles;
