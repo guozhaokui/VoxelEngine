@@ -7,6 +7,7 @@ import { Texture2D } from "laya/resource/Texture2D";
 import { SurfaceNets } from "../SurfaceNets";
 import { polyToTriMesh } from "../Mesh";
 import { MeshSprite3D } from "laya/d3/core/MeshSprite3D";
+import { VoxelizeMesh } from './VoxelizeMesh';
 
 function smoothMesh(vertices:number[][], indices:number[][]){
 	let fi=0;
@@ -26,7 +27,13 @@ export class Mesh2Voxel{
 
     loadObj(url: string,gridsz:number,scene:Scene3D): void {
         Laya.loader.load(url, new Handler(this, (data:string)=>{
-			let dt = this.voxelizeObjMesh(data,gridsz);
+			var objmesh = new OBJLoader_mesh(data, null);
+
+			var newvox = new  VoxelizeMesh();
+			var dt = newvox.toVoxel(objmesh.vertices,objmesh.indices,3,0.1,null,false);
+			/*
+			let dt = this.voxelizeObjMesh(objmesh,gridsz);
+			*/
 			let isos = new SurfaceNets();
 			//TEST
 			/*
@@ -68,9 +75,8 @@ export class Mesh2Voxel{
      * @param data 
      * @param sz 小格子大小
      */
-    voxelizeObjMesh(data:string, sz:number){
+    voxelizeObjMesh(objmesh:any, sz:number){
         // 加载obj文件
-        var objmesh = new OBJLoader_mesh(data, null);
         // 所有的顶点，index，texture
         let verteices = objmesh.vertices;
         let textures = objmesh.textures;

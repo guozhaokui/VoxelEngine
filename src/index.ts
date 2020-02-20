@@ -55,7 +55,7 @@ grid.addToScene(scene);
 
 
 let mv = new Mesh2Voxel();
-mv.loadObj('res/zhagu.obj',0.05,scene);
+mv.loadObj('res/box.obj',0.05,scene);
 
 
 //let mesh = new MeshSprite3D(createVoxMesh({get:getdata},10,10,10,10,10,10,new Vector3(0,0,0), new Vector3(10,10,10)));
