@@ -103,7 +103,7 @@ class MultiDepthBuffer{
             one.push(dist);
         }
         //DEBUG
-        if(x==7&&y==32){
+        if(x==8&&y==26){
             //debugger;
             //console.log('cur=',one)
         }
@@ -295,9 +295,9 @@ export class VoxelizeMesh{
 
             //DEBUG
             let dbgline = this.dbgline;
-            dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
-            dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[6],tri[7],tri[8]), Color.WHITE,Color.WHITE);
-            dbgline.addLine( new Vector3(tri[6],tri[7],tri[8]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
+            //dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
+            //dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[6],tri[7],tri[8]), Color.WHITE,Color.WHITE);
+            //dbgline.addLine( new Vector3(tri[6],tri[7],tri[8]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
             //DEBUG
 
             // 计算法线
@@ -522,12 +522,12 @@ export class VoxelizeMesh{
             for(var y=sty; y<=edy; y++){
                 for(var x=stx; x<=edx; x++){
                     //DEBUG
-                    //if(y!=40)continue;
-                    //if(x!=7)continue;
-                    if(!xysurface.getdbgFlag(x,y)){
-                        dbgline.addLine( new Vector3(x,y,0), new Vector3(x,y,20), Color.GREEN,Color.GREEN);
-                        xysurface.setdbgFlag(x,y);
-                    }
+                    //if(y!=26)continue;
+                    //if(x!=8)continue;
+                   // if(!xysurface.getdbgFlag(x,y)){
+                    //    dbgline.addLine( new Vector3(x,y,0), new Vector3(x,y,40), Color.GREEN,Color.GREEN);
+                    //    xysurface.setdbgFlag(x,y);
+                    //}
                     //DEBUG
                     // 相当于确定2d的点是否在2d三角形内
                     if(this.pointInTriangle(tri[0],tri[1],tri[3],tri[4],tri[6],tri[7],x,y)){
