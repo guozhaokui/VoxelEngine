@@ -8,6 +8,7 @@ import { SurfaceNets } from "../SurfaceNets";
 import { polyToTriMesh } from "../Mesh";
 import { MeshSprite3D } from "laya/d3/core/MeshSprite3D";
 import { VoxelizeMesh } from './VoxelizeMesh';
+import { PixelLineSprite3D } from 'laya/d3/core/pixelLine/PixelLineSprite3D';
 
 function smoothMesh(vertices:number[][], indices:number[][]){
 	let fi=0;
@@ -25,11 +26,14 @@ export class Mesh2Voxel{
 	posBuffer:Float32Array;
 	faceBuffer:number[];
 
+	dbgline:PixelLineSprite3D;
+
     loadObj(url: string,gridsz:number,scene:Scene3D): void {
         Laya.loader.load(url, new Handler(this, (data:string)=>{
 			var objmesh = new OBJLoader_mesh(data, null);
 
 			var newvox = new  VoxelizeMesh();
+			newvox.dbgline=this.dbgline;
 			var dt = newvox.toVoxel(objmesh.vertices,objmesh.indices,3,0.1,null,false);
 			/*
 			let dt = this.voxelizeObjMesh(objmesh,gridsz);

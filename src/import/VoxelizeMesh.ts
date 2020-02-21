@@ -1,5 +1,7 @@
 import { Vector3 } from "laya/d3/math/Vector3";
 import { Vector4 } from "laya/d3/math/Vector4";
+import { PixelLineSprite3D } from "laya/d3/core/pixelLine/PixelLineSprite3D";
+import { Color } from "laya/d3/math/Color";
 
 function verifyBE(v:number,s:number){
     if(v<s)
@@ -18,19 +20,24 @@ class VoxData{
         this.ysize=ys;
         this.zsize=zs;
         this.data = new Int8Array(xs*ys*zs);
-        this.adjy=xs*zs;
-        this.adjz=xs;
+        // z向上的格式
+        this.adjy=xs;
+        this.adjz=xs*ys;
+        //this.adjy=xs*zs;
+        //this.adjz=xs;
     }
     set(x:int,y:int,z:int,v:int){
         if(x<0||y<0||z<0||x>=this.xsize||y>=this.ysize||z>=this.zsize){
             throw('eee');
         }
+        //console.log('set',x,y,z);
         this.data[x+y*this.adjy+z*this.adjz]=v;
     }
 }
 
 class MultiDepthBuffer{
     surface:number[][]=[];
+    dbgData:Uint8Array;
     width:int=0;
     height:int=0;
     alloc(w:int,h:int){
@@ -42,12 +49,23 @@ class MultiDepthBuffer{
         for(var i=0; i<sz; i++){
             surf[i]=[];
         }
+        //DEBUG
+        this.dbgData = new Uint8Array(this.surface.length)
     }
     verifyxy(x:int,y:int){
         if(x<0||y<0||x>=this.width||y>=this.height){
             throw 'xy error'
         }
     }
+
+    //DEBUG
+    getdbgFlag(x:int,y:int){
+        return this.dbgData[x+y*this.width];
+    }
+    setdbgFlag(x:int,y:int){
+        this.dbgData[x+y*this.width]=1;
+    }
+    //DEBUG
 
     // dist 为负的表示法线与正方向相同，这样就不用区分左右方向了
     // 正好在边缘，而被忽略的怎么办， 左边有，右边在边缘算成没有了
@@ -65,36 +83,70 @@ class MultiDepthBuffer{
             let absv = cv<0?-cv:cv;
             // 两个非常靠近的左右认为是重叠的，互相抵消，一次只能抵消一个
             var d = absv-v;
-            if(Math.abs(d)<1e-4 && Math.sign(dist)!=Math.sign(cv)){
-                one.splice(i,1);
+            if(Math.abs(d)<1e-4){
+                if(Math.sign(dist)!=Math.sign(cv))// 反向的抵消
+                    one.splice(i,1);
+                else{
+                    //同向的留一个。 这样有个问题，就是对齐的两个大小不同的盒子
+                    return;
+                }
                 return;
             }
             if(d>0){
-                one.splice(i-1,0,dist);
+                // 插入
+                one.splice(i,0,dist);
+                find=true;
+                break;
             }
         }
         if(!find){
             one.push(dist);
         }
+        //DEBUG
+        if(x==7&&y==32){
+            //debugger;
+            //console.log('cur=',one)
+        }
+        //DEBUG        
     }
 
+    filldata(st:int,ed:int,data:VoxData){
+
+    }
     // 去除中间数据， 每当遇到1和0的时候，就分别表示起点和终点
     cleanBuffer(data:VoxData){
         var ys = this.height;
         var xs = this.width;
         var cidx=0;
         var datanum=0;
+        var state=0;
+        var stz=0;
         for(var y=0; y<ys; y++){
             for(var x=0; x<xs; x++){
+                state=0;
                 var one = this.surface[cidx++];
                 var dtnum = one.length;
                 for(var i=0; i<dtnum; i++){
                     var z = one[i];
                     var absv=z<0?-z:z;
                     var gridz = absv|0;
+                    if(z>0){
+                        if(state==0) stz=gridz;
+                        state++;
+                    }else{
+                        state--;
+                        if(state==0){
+                            for(var fz=stz;fz<=gridz; fz++){
+                                data.set(x,y,fz,-127);            
+                            }
+                        }
+                    }
+                    if(state!=0){
                     // 不对，这里不能假设xyz
-                    data.set(x,y,gridz,-127);
+                    //data.set(x,y,gridz,-127);
                     datanum++;
+                    }
+                    //data.set(x,y,gridz,-127);
                 }
             }
         }
@@ -120,6 +172,7 @@ export class VoxelizeMesh{
     gridmax=[0,0,0];
 
     posBuffer:Float32Array;
+    dbgline:PixelLineSprite3D;
 
     private static tmpNorm = new Vector3();
     private static tmpVec30=new Vector3();
@@ -239,6 +292,13 @@ export class VoxelizeMesh{
             tri[6] = vertices[v2id];
             tri[7] = vertices[v2id+1];
             tri[8] = vertices[v2id+2];
+
+            //DEBUG
+            let dbgline = this.dbgline;
+            dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
+            dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[6],tri[7],tri[8]), Color.WHITE,Color.WHITE);
+            dbgline.addLine( new Vector3(tri[6],tri[7],tri[8]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
+            //DEBUG
 
             // 计算法线
             var e1 = VoxelizeMesh.tmpVec30;
@@ -407,9 +467,10 @@ export class VoxelizeMesh{
 
     // TODO 1. 可以控制方向 2. 可以控制误差
     private pointInTriangle(ax:number, ay:number, bx:number, by:number, cx:number, cy:number, px:number, py:number) {
-        return (cx - px) * (ay - py) - (ax - px) * (cy - py) >= 0 &&
-            (ax - px) * (by - py) - (bx - px) * (ay - py) >= 0 &&
-            (bx - px) * (cy - py) - (cx - px) * (by - py) >= 0;
+        var a = (cx - px) * (ay - py) - (ax - px) * (cy - py);
+        var b =  (ax - px) * (by - py) - (bx - px) * (ay - py);
+        var c = (bx - px) * (cy - py) - (cx - px) * (by - py);
+        return (a>=0 && b>=0 && c>=0) ||(a<=0&&b<=0&&c<=0);
             // 假设扩展d。则叉乘的值与d的关系与边长成正比
     } 
     
@@ -449,17 +510,40 @@ export class VoxelizeMesh{
         var edy = maxy|0;
         var edz = maxz|0;
 
+        //DEBUG
+        let dbgline = this.dbgline;
+        //DEBUG
+
+        //console.log('plane:',plane,d);
         var xysurface = this.xySurface;
         if(plane.z<1e-6 && plane.z>-1e-6){
             // 平行了，不会与平面相交
         }else{
-            for(var y=sty; y<edy; y++){
-                for(var x=stx; x<edx; x++){
+            for(var y=sty; y<=edy; y++){
+                for(var x=stx; x<=edx; x++){
+                    //DEBUG
+                    //if(y!=32)continue;
+                    //if(x!=7)continue;
+                    if(!xysurface.getdbgFlag(x,y)){
+                        dbgline.addLine( new Vector3(x,y,0), new Vector3(x,y,20), Color.GREEN,Color.GREEN);
+                        xysurface.setdbgFlag(x,y);
+                    }
+                    //DEBUG
                     // 相当于确定2d的点是否在2d三角形内
                     if(this.pointInTriangle(tri[0],tri[1],tri[3],tri[4],tri[6],tri[7],x,y)){
                         // 计算交点
                         let z = (d -( x*plane.x+y*plane.y))/plane.z;
+                        //console.log('dist=',z)
+                        if(plane.z>0) z=-z;
                         xysurface.addDepth(x,y,z);
+
+                        //DEBUG
+                        if(x==7&&y==32){
+                            //dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[3],tri[4],tri[5]), Color.RED, Color.RED);
+                            //dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[6],tri[7],tri[8]), Color.RED, Color.RED);
+                            //dbgline.addLine( new Vector3(tri[6],tri[7],tri[8]), new Vector3(tri[3],tri[4],tri[5]), Color.RED, Color.RED);                            
+                        }
+                        //DEBUG        
                     }
                 }
             }

@@ -24,6 +24,7 @@ import { VertexMesh } from "laya/d3/graphics/Vertex/VertexMesh";
 import { PrimitiveMesh } from "laya/d3/resource/models/PrimitiveMesh";
 import { Mesh } from "laya/d3/resource/models/Mesh";
 import { Mesh2Voxel } from "./import/Mesh2Voxel";
+import { PixelLineSprite3D } from "laya/d3/core/pixelLine/PixelLineSprite3D";
 
 //
 let scene: Scene3D;
@@ -38,6 +39,8 @@ var camera = (<Camera>scene.addChild(new Camera(0, 1, 10000)));
 let camctrl = camera.addComponent(MouseCtrl1) as MouseCtrl1;
 camera.clearColor = new Vector4(0.2, 0.2, 0.2, 0);
 camctrl.initCamera(new Vector3(0, 20, 0), new Vector3(0, 0, 0), 132);
+//camera.orthographic=true;
+//camera.orthographicVerticalSize=30;
 //camera.addComponent(CameraMoveScript);
 //camera.clearColor = null;
 
@@ -53,9 +56,14 @@ let grid = new GridSurface(10, null, null);
 //grid.showAxis=false;
 grid.addToScene(scene);
 
+let dbgLine = new PixelLineSprite3D();
+dbgLine.maxLineCount=320*1024;
+scene.addChild(dbgLine);
 
 let mv = new Mesh2Voxel();
-mv.loadObj('res/box.obj',0.05,scene);
+mv.dbgline=dbgLine;
+mv.loadObj('res/zhagu1.obj',0.05,scene);
+
 
 
 //let mesh = new MeshSprite3D(createVoxMesh({get:getdata},10,10,10,10,10,10,new Vector3(0,0,0), new Vector3(10,10,10)));
