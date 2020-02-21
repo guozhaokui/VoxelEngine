@@ -522,7 +522,7 @@ export class VoxelizeMesh{
             for(var y=sty; y<=edy; y++){
                 for(var x=stx; x<=edx; x++){
                     //DEBUG
-                    //if(y!=32)continue;
+                    //if(y!=40)continue;
                     //if(x!=7)continue;
                     if(!xysurface.getdbgFlag(x,y)){
                         dbgline.addLine( new Vector3(x,y,0), new Vector3(x,y,20), Color.GREEN,Color.GREEN);
