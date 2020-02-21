@@ -103,9 +103,9 @@ class MultiDepthBuffer{
             one.push(dist);
         }
         //DEBUG
-        if(x==8&&y==26){
+        if(x==12&&y==19){
             //debugger;
-            //console.log('cur=',one)
+            console.log('cur=',one)
         }
         //DEBUG        
     }
@@ -156,6 +156,11 @@ class MultiDepthBuffer{
     isInner(x:int,y:int, z:int){
 
     }
+}
+
+class VoxShell{
+    // 类似上面的结构，但是把三个方向的合并到一起
+    // 
 }
 
 export class VoxelizeMesh{

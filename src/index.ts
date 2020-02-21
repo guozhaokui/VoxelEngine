@@ -62,7 +62,7 @@ scene.addChild(dbgLine);
 
 let mv = new Mesh2Voxel();
 mv.dbgline=dbgLine;
-mv.loadObj('res/zhagu1.obj',0.05,scene);
+mv.loadObj('res/cylinder.obj',0.1,scene);
 
 
 

@@ -34,7 +34,7 @@ export class Mesh2Voxel{
 
 			var newvox = new  VoxelizeMesh();
 			newvox.dbgline=this.dbgline;
-			var dt = newvox.toVoxel(objmesh.vertices,objmesh.indices,3,0.05,null,false);
+			var dt = newvox.toVoxel(objmesh.vertices,objmesh.indices,3,gridsz,null,false);
 			/*
 			let dt = this.voxelizeObjMesh(objmesh,gridsz);
 			*/
