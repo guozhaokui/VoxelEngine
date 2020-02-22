@@ -34,6 +34,13 @@ class VoxData{
         //console.log('set',x,y,z);
         this.data[x+y*this.adjy+z*this.adjz]=v;
     }
+    get(x:int,y:int,z:int){
+        if(x<0||y<0||z<0||x>=this.xsize||y>=this.ysize||z>=this.zsize){
+            throw('eee');
+        }
+        //console.log('set',x,y,z);
+        return this.data[x+y*this.adjy+z*this.adjz];
+    }
 }
 
 class MultiDepthBuffer{
@@ -41,6 +48,15 @@ class MultiDepthBuffer{
     dbgData:Uint8Array;
     width:int=0;
     height:int=0;
+    mainax:int=0;
+    static coord=[0,0,0];
+    /**
+     * 
+     * @param axid 0 x轴是深度，1 y轴是深度 2 z轴是深度
+     */
+    constructor(axid:int){
+        this.mainax=axid;
+    }
     alloc(w:int,h:int){
         this.width=w;
         this.height=h;
@@ -114,16 +130,31 @@ class MultiDepthBuffer{
     filldata(st:int,ed:int,data:VoxData){
 
     }
+
+    private transXYZ(x:int,y:int,z:int){
+        var ret=MultiDepthBuffer.coord;
+        var ax=this.mainax;
+        ret[ax]=z;
+        ret[(ax+1)%3]=x;
+        ret[(ax+2)%3]=y;
+        return ret;
+    }
+
     // 去除中间数据， 每当遇到1和0的时候，就分别表示起点和终点
-    cleanBuffer(data:VoxData){
+    cleanBuffer(data:VoxData,fill:boolean){
         var ys = this.height;
         var xs = this.width;
         var cidx=0;
         var datanum=0;
         var state=0;
         var stv=0;
+        var coord=MultiDepthBuffer.coord;
+        var ax=this.mainax;
+
         for(var y=0; y<ys; y++){
+            coord[(ax+2)%3]=y;
             for(var x=0; x<xs; x++){
+                coord[(ax+1)%3]=x;
                 state=0;
                 var one = this.surface[cidx++];
                 var dtnum = one.length;
@@ -131,37 +162,62 @@ class MultiDepthBuffer{
                     var z = one[i];
                     var absv=z<0?-z:z;
                     var gridz = absv|0;
-                    if(z>0){
-                        if(state==0) stv=absv;
-                        state++;
-                    }else{
-                        state--;
-                        if(state==0){
-                            var gridstz = stv|0;
-                            // 起点应该是正的
-                            var gridv = stv-gridstz;
-                            //转到byte
-                            //gridv = (gridv*255)|0-127;
-                            // 起点
-                            data.set(x,y,gridstz,gridv);
-                            data.set(x,y,gridstz+1,gridv-1);
-                            // 填充
-                            for(var fz=gridstz+2;fz<gridz; fz++){
-                                data.set(x,y,fz,-127);            
+                    if(fill){
+                        if(z>0){
+                            if(state==0) stv=absv;
+                            state++;
+                        }else{
+                            state--;
+                            if(state==0){
+                                var gridstz = stv|0;
+                                // 起点应该是正的
+                                var gridv = stv-gridstz;
+                                //转到byte
+                                //gridv = (gridv*255)|0-127;
+                                // 起点
+                                coord[ax]=gridstz;
+                                data.set(coord[0],coord[1],coord[2],gridv);//data.set(x,y,gridstz,gridv);
+                                coord[ax]=gridstz+1;
+                                data.set(coord[0],coord[1],coord[2],gridv);//data.set(x,y,gridstz+1,gridv-1);
+                                // 填充
+                                for(var fz=gridstz+2;fz<gridz; fz++){
+                                    coord[ax]=fz;
+                                    data.set(coord[0],coord[1],coord[2],-127);//data.set(x,y,fz,-127);            
+                                }
+                                // 终点. //0到-1分别对应 127~-127
+                                // 终点是负的
+                                var endv = gridz-absv;// (((absv-gridz)*255)|0)-127;
+                                coord[ax]=fz;
+                                data.set(coord[0],coord[1],coord[2],endv);
+                                coord[ax]=fz+1;
+                                data.set(coord[0],coord[1],coord[2],endv+1);  // 至少要提供两个数据
                             }
-                            // 终点. 0到-1分别对应 127~-127
-                            // 终点是负的
-                            var endv = gridz-absv;// (((absv-gridz)*255)|0)-127;
-                            data.set(x,y,fz,endv);
-                            data.set(x,y,fz+1,endv+1);  // 至少要提供两个数据
+                        }
+                        //data.set(x,y,gridz,-127);
+                    }else{
+                        // 不填充那就是修补，根据值直接设置
+                        //coord[(ax+1)%3]=x;
+                        //coord[(ax+2)%3]=y;
+                        if(z>0){// 起点
+                            let gridv = absv-gridz; // 必然>0
+                            let nextv = gridv-1;
+                            coord[ax]=gridz;
+                            if(data.get(coord[0],coord[1],coord[2])<gridv) 
+                                data.set(coord[0],coord[1],coord[2],gridv);
+                                coord[ax]=gridz+1;
+                            if(data.get(coord[0],coord[1],coord[2])<nextv) 
+                                data.set(coord[0],coord[1],coord[2],nextv);
+                        }else{
+                            let gridv = gridz-absv; // 必然<0
+                            let nextv = gridv+1;
+                            coord[ax]=gridz;
+                            if(data.get(coord[0],coord[1],coord[2])<gridv) 
+                                data.set(coord[0],coord[1],coord[2],gridv);
+                            coord[ax]=gridz+1;
+                            if(data.get(coord[0],coord[1],coord[2])<nextv) 
+                                data.set(coord[0],coord[1],coord[2],nextv)
                         }
                     }
-                    if(state!=0){
-                    // 不对，这里不能假设xyz
-                    //data.set(x,y,gridz,-127);
-                    datanum++;
-                    }
-                    //data.set(x,y,gridz,-127);
                 }
             }
         }
@@ -182,9 +238,9 @@ export class VoxelizeMesh{
     /** 所有面的法线 */
     faceNormals:Vector4[]=[];   //法线和d
     faceNormal:number[]=[0,0,0,0];  // 法线和d
-    xySurface = new MultiDepthBuffer(); //每个元素保存的是一个{faceid,dist}
-    yzSurface = new MultiDepthBuffer()
-    xzSurface = new MultiDepthBuffer();
+    xySurface = new MultiDepthBuffer(2); //每个元素保存的是一个{faceid,dist}
+    yzSurface = new MultiDepthBuffer(0)
+    xzSurface = new MultiDepthBuffer(1);
     scale=1;
     meshMin:number[]=[0,0,0];
     meshMax:number[]=[0,0,0];
@@ -249,7 +305,7 @@ export class VoxelizeMesh{
         var zsize = gridmax[2]-gridmin[2]+1;
         // 构造三个平面
         this.xySurface.alloc( xsize, ysize);
-        this.xzSurface.alloc( xsize, zsize);
+        this.xzSurface.alloc( zsize, xsize);
         this.yzSurface.alloc( ysize, zsize);
 
         var ret = new VoxData();
@@ -347,7 +403,7 @@ export class VoxelizeMesh{
         }
 
         // 操作实际数据
-        this.xySurface.cleanBuffer(data);
+        this.xySurface.cleanBuffer(data,true);
 
     }
 
@@ -569,18 +625,18 @@ export class VoxelizeMesh{
             }
         }
 
-        /*
         var xzsurface = this.xzSurface;
         if(plane.y<1e-6 && plane.y>-1e-6){
             // 平行了，不会与平面相交
         }else{
-            for(var z=stz; z<edz; z++){
-                for( var x=stx; x<edx; x++){
+            for( var x=stx; x<edx; x++){       // y
+                for(var z=stz; z<edz; z++){    // x  因为 2d的x=y+1=z， y=y+2=x
                     // 相当于确定2d的点是否在2d三角形内
-                    if(this.pointInTriangle(tri[0],tri[2],tri[3],tri[5],tri[6],tri[8],x,z)){
+                    if(this.pointInTriangle(tri[2],tri[0],tri[5],tri[3],tri[8],tri[6],z,x)){
                         // 计算交点
                         let y = (d -( x*plane.x+z*plane.z))/plane.y;
-                        xzsurface.addDepth(x,z,y);
+                        if(plane.y>0)y=-y;
+                        xzsurface.addDepth(z,x,y);
                     }
                 }
             }
@@ -590,18 +646,18 @@ export class VoxelizeMesh{
         if(plane.x<1e-6 && plane.x>-1e-6){
             // 平行了，不会与平面相交
         }else{
-            for(var z=stz; z<edz; z++){
-                for(var y=sty; y<edy; y++){
+            for(var z=stz; z<edz; z++){     // y
+                for(var y=sty; y<edy; y++){ // x
                     // 相当于确定2d的点是否在2d三角形内
                     if(this.pointInTriangle(tri[1],tri[2],tri[4],tri[5],tri[7],tri[8],y,z)){// TODO 以后可以优化，不必每次完整计算
                         // 计算交点
                         let x = (d -( z*plane.z+y*plane.y))/plane.x; //TODO 以后可以优化
+                        if(plane.x>0)x=-x;
                         yzsurface.addDepth(y,z,x);
                     }
                 }
             }
         }
-        */
     }
     
     /*
