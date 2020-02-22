@@ -9,7 +9,7 @@ function verifyBE(v:number,s:number){
 }
 
 class VoxData{
-    data:Int8Array;
+    data:Float32Array;  // 为了能方便的实现原型，先用float
     xsize=0;
     ysize=0;
     zsize=0;
@@ -19,7 +19,8 @@ class VoxData{
         this.xsize=xs;
         this.ysize=ys;
         this.zsize=zs;
-        this.data = new Int8Array(xs*ys*zs);
+        this.data = new Float32Array(xs*ys*zs);
+        this.data.fill(127);
         // z向上的格式
         this.adjy=xs;
         this.adjz=xs*ys;
@@ -120,7 +121,7 @@ class MultiDepthBuffer{
         var cidx=0;
         var datanum=0;
         var state=0;
-        var stz=0;
+        var stv=0;
         for(var y=0; y<ys; y++){
             for(var x=0; x<xs; x++){
                 state=0;
@@ -131,14 +132,28 @@ class MultiDepthBuffer{
                     var absv=z<0?-z:z;
                     var gridz = absv|0;
                     if(z>0){
-                        if(state==0) stz=gridz;
+                        if(state==0) stv=absv;
                         state++;
                     }else{
                         state--;
                         if(state==0){
-                            for(var fz=stz;fz<=gridz; fz++){
+                            var gridstz = stv|0;
+                            // 起点应该是正的
+                            var gridv = stv-gridstz;
+                            //转到byte
+                            //gridv = (gridv*255)|0-127;
+                            // 起点
+                            data.set(x,y,gridstz,gridv);
+                            data.set(x,y,gridstz+1,gridv-1);
+                            // 填充
+                            for(var fz=gridstz+2;fz<gridz; fz++){
                                 data.set(x,y,fz,-127);            
                             }
+                            // 终点. 0到-1分别对应 127~-127
+                            // 终点是负的
+                            var endv = gridz-absv;// (((absv-gridz)*255)|0)-127;
+                            data.set(x,y,fz,endv);
+                            data.set(x,y,fz+1,endv+1);  // 至少要提供两个数据
                         }
                     }
                     if(state!=0){
@@ -527,7 +542,7 @@ export class VoxelizeMesh{
             for(var y=sty; y<=edy; y++){
                 for(var x=stx; x<=edx; x++){
                     //DEBUG
-                    //if(y!=26)continue;
+                    //if(y!=5)continue;
                     //if(x!=8)continue;
                    // if(!xysurface.getdbgFlag(x,y)){
                     //    dbgline.addLine( new Vector3(x,y,0), new Vector3(x,y,40), Color.GREEN,Color.GREEN);

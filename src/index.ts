@@ -45,12 +45,21 @@ camctrl.initCamera(new Vector3(0, 20, 0), new Vector3(0, 0, 0), 132);
 //camera.clearColor = null;
 
 //light
+
 var directionLight = (<DirectionLight>scene.addChild(new DirectionLight()));
 directionLight.color = new Vector3(0.6, 0.6, 0.6);
 //设置平行光的方向
 var mat = directionLight.transform.worldMatrix;
 mat.setForward(new Vector3(-1.0, -1.0, -1.0));
 directionLight.transform.worldMatrix = mat;
+
+var directionLight1 = (<DirectionLight>scene.addChild(new DirectionLight()));
+directionLight1.color = new Vector3(0.6, 0.6, 0.6);
+//设置平行光的方向
+var mat1 = directionLight1.transform.worldMatrix;
+mat1.setForward(new Vector3(1.0, 1.0, 1.0));
+directionLight1.transform.worldMatrix = mat1;
+
 
 let grid = new GridSurface(10, null, null);
 //grid.showAxis=false;
@@ -62,7 +71,7 @@ scene.addChild(dbgLine);
 
 let mv = new Mesh2Voxel();
 mv.dbgline=dbgLine;
-mv.loadObj('res/cylinder.obj',0.1,scene);
+mv.loadObj('res/sphere.obj',0.1,scene);
 
 
 
