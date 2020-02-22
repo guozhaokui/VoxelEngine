@@ -43,6 +43,94 @@ class VoxData{
     }
 }
 
+class VoxData1{
+    xsize=0;
+    ysize=0;
+    zsize=0;
+    data:number[][][]=[];
+    init(xs:int,ys:int,zs:int){
+        this.xsize=xs;
+        this.ysize=ys;
+        this.zsize=zs;
+        this.data.length=xs*ys;
+        var dt = this.data;
+        var id=0;
+        for(var y=0;y<ys; y++){
+            for(var x=0; x<xs; x++,id++){
+                dt[id]=[];
+            }
+        }
+    }
+
+    // d是相对于当前格子起点的距离，可为正负
+    set(x:int,y:int,z:int,dir:int,d:number){
+        var zline = this.data[x*this.xsize*y];
+        var zdt = zline[z];
+        if(!zdt){
+            zdt = zline[z]=[0,0,0];
+        }
+        zdt[dir]=d;
+    }
+
+    get(x:int,y:int,z:int){
+        var zline = this.data[x+this.xsize*y];
+        var zdt = zline[z];
+        if(!zdt){
+            return null;
+        }
+        return zdt;
+    }
+
+    outPos(outdata:any){
+        var id=0;
+        var xs = this.zsize;
+        var ys = this.ysize;
+        var dt = this.data;
+        var xv=0;
+        var yv=0;
+        var zv=0;
+        var n=0;
+        for(var y=0;y<ys-1; y++){
+            for(var x=0; x<xs-1; x++,id++){
+                var zline = dt[id];
+                var zlen = zline.length;
+                if(zlen){
+                    for(var z=0; z<zlen; z++){
+                        var cgrid = zline[z];
+                        // 再找其他7个点. 001表示x
+                        var p001 = dt[x+1+xs*y];//TODO xs*y 优化
+                        var v001 = p001 && p001[z]
+
+                        var p010= dt[x+xs*(y+1)];
+                        var v010 = p010 && p010[z];
+
+                        var p100= zline[z+1];
+
+                        var p011= dt[x+1+xs*(y+1)];
+                        var v011 = p011 && p011[z];
+
+                        var p101= p001 && p001[z+1];
+
+                        var p110= p010 && p010[z+1];
+
+                        var p111= p011 && p011[z+1];
+
+                        // 检查各个方向是否有变化来判断
+                        // 各个方向直接累加行么？ 这样不知道几个
+                        cgrid[1]+v001[1];
+                        if(v001){
+                            n++;
+
+                        }
+
+                    }
+                }
+            }
+        }
+
+    }
+}
+
 class MultiDepthBuffer{
     surface:number[][]=[];
     dbgData:Uint8Array;
@@ -178,7 +266,7 @@ class MultiDepthBuffer{
                                 coord[ax]=gridstz;
                                 data.set(coord[0],coord[1],coord[2],gridv);//data.set(x,y,gridstz,gridv);
                                 coord[ax]=gridstz+1;
-                                data.set(coord[0],coord[1],coord[2],gridv);//data.set(x,y,gridstz+1,gridv-1);
+                                data.set(coord[0],coord[1],coord[2],gridv-1);//data.set(x,y,gridstz+1,gridv-1);
                                 // 填充
                                 for(var fz=gridstz+2;fz<gridz; fz++){
                                     coord[ax]=fz;
@@ -343,6 +431,10 @@ export class VoxelizeMesh{
 			posst+=3;
 		}
     }    
+
+    private toD(){
+
+    }
     
     private fill(vertices:Float32Array, indices:number[], flipNormal:boolean,data:VoxData){
         var faceNum = indices.length / 3;
@@ -370,6 +462,7 @@ export class VoxelizeMesh{
             tri[8] = vertices[v2id+2];
 
             //DEBUG
+            //if(fi>480)continue;
             let dbgline = this.dbgline;
             //dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[3],tri[4],tri[5]), Color.WHITE,Color.WHITE);
             //dbgline.addLine( new Vector3(tri[0],tri[1],tri[2]), new Vector3(tri[6],tri[7],tri[8]), Color.WHITE,Color.WHITE);
@@ -403,7 +496,9 @@ export class VoxelizeMesh{
         }
 
         // 操作实际数据
-        this.xySurface.cleanBuffer(data,true);
+        //this.xySurface.cleanBuffer(data,true);
+        this.yzSurface.cleanBuffer(data,true);
+        //this.xzSurface.cleanBuffer(data,true);
 
     }
 
@@ -629,8 +724,8 @@ export class VoxelizeMesh{
         if(plane.y<1e-6 && plane.y>-1e-6){
             // 平行了，不会与平面相交
         }else{
-            for( var x=stx; x<edx; x++){       // y
-                for(var z=stz; z<edz; z++){    // x  因为 2d的x=y+1=z， y=y+2=x
+            for( var x=stx; x<=edx; x++){       // y
+                for(var z=stz; z<=edz; z++){    // x  因为 2d的x=y+1=z， y=y+2=x
                     // 相当于确定2d的点是否在2d三角形内
                     if(this.pointInTriangle(tri[2],tri[0],tri[5],tri[3],tri[8],tri[6],z,x)){
                         // 计算交点
@@ -646,8 +741,16 @@ export class VoxelizeMesh{
         if(plane.x<1e-6 && plane.x>-1e-6){
             // 平行了，不会与平面相交
         }else{
-            for(var z=stz; z<edz; z++){     // y
-                for(var y=sty; y<edy; y++){ // x
+            for(var z=stz; z<=edz; z++){     // y
+                for(var y=sty; y<=edy; y++){ // x
+                    //DEBUG
+                    //if(y!=9)continue;
+                    //if(z!=12)continue;
+                    if(!yzsurface.getdbgFlag(y,z)){
+                        dbgline.addLine( new Vector3(0,y,z), new Vector3(240,y,z), Color.GREEN,Color.GREEN);
+                        yzsurface.setdbgFlag(y,z);
+                    }
+                    //DEBUG                    
                     // 相当于确定2d的点是否在2d三角形内
                     if(this.pointInTriangle(tri[1],tri[2],tri[4],tri[5],tri[7],tri[8],y,z)){// TODO 以后可以优化，不必每次完整计算
                         // 计算交点
