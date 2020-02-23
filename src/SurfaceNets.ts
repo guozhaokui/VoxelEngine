@@ -36,6 +36,7 @@
 var buffer = new Int32Array(4096);
 
 /**
+ * Z
  *    6 ------7
  *   /:      /|
  *  / :     / |
@@ -117,24 +118,10 @@ export class SurfaceNets {
 			//m is the pointer into the buffer we are going to use.  
 			//This is slightly obtuse because javascript does not have good support for packed data structures, so we must use typed arrays :(
 			//The contents of the buffer will be the indices of the vertices on the previous x/y slice of the volume
-			// 第二行水平的下一个和第一行水平的下一个
-			// 
-			/**
-			 * 
-			 * 第一次是  |---m
-			 *          o- -|
-			 * o=m-du,m-dv
-			 * 
-			 * 第二次是  o---m
-			 *          |---|
-			 * 
-			 * 
-			 */
-
 			var m = 1 + (xl + 1) * (1 + buf_no * (yl + 1));
 			// foreach y
 			for (x[1] = 0; x[1] < yl - 1; ++x[1], ++n, m += 2)
-				// foreach z
+				// foreach x
 				for (x[0] = 0; x[0] < xl - 1; ++x[0], ++n, ++m) {
 
 					//Read in 8 field values around this vertex and store them in an array

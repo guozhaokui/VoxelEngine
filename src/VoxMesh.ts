@@ -4,13 +4,11 @@ export class VoxMesh{
 
     }
 
-    setVertex(x:int,y:int,z:int, px:number,py:number,pz:number,inner:boolean){
+    setVertex(x:int,y:int,z:int, pos:number[],inner:boolean){
 
     }
 
-    toMesh(){
 
-    }
 
     addOneVoxData(){
 
