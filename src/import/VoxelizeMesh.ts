@@ -101,6 +101,7 @@ class MultiDepthBuffer{
         var find=false;
         for(var i=0; i<num; i++){
             let cv = one[i];
+            if(cv==undefined) continue;
             let absv = cv<0?-cv:cv;
             // 两个非常靠近的左右认为是重叠的，互相抵消，一次只能抵消一个
             var d = absv-v;
@@ -175,8 +176,8 @@ class MultiDepthBuffer{
                             // 起点
                             coord[ax]=gridstz;
                             data.set(coord[0],coord[1],coord[2],ax,gridv);
-                            coord[ax]=gridstz+1;
-                            data.set(coord[0],coord[1],coord[2],ax,gridv-1);//data.set(x,y,gridstz+1,gridv-1);
+                            //coord[ax]=gridstz+1;
+                            //data.set(coord[0],coord[1],coord[2],ax,gridv-1);//data.set(x,y,gridstz+1,gridv-1);
                             // 填充
                             /*
                             for(var fz=gridstz+2;fz<gridz; fz++){
@@ -189,8 +190,8 @@ class MultiDepthBuffer{
                             var endv = gridz-absv;// (((absv-gridz)*255)|0)-127;
                             coord[ax]=gridz;
                             data.set(coord[0],coord[1],coord[2],ax,endv);
-                            coord[ax]=gridz+1;
-                            data.set(coord[0],coord[1],coord[2],ax,endv+1);  // 至少要提供两个数据
+                            //coord[ax]=gridz+1;
+                            //data.set(coord[0],coord[1],coord[2],ax,endv+1);  // 至少要提供两个数据
                         }
                     }
                     //data.set(x,y,gridz,-127);
@@ -447,6 +448,9 @@ export class VoxelizeMesh{
                         //console.log('dist=',z)
                         if(plane.z>0) z=-z;
                         xysurface.addDepth(x,y,z);
+                        //DEBUG
+                        //dbgline.addLine(new Vector3(Math.abs(x),Math.abs(y),Math.abs(z)), new Vector3(Math.abs(x),Math.abs(y)+0.1,Math.abs(z)), Color.YELLOW,Color.YELLOW);
+                        //DEBUG
 
                         //DEBUG
                         if(x==7&&y==32){

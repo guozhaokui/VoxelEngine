@@ -71,7 +71,7 @@ scene.addChild(dbgLine);
 
 let mv = new Mesh2Voxel();
 mv.dbgline=dbgLine;
-mv.loadObj('res/volumeBody.obj',0.02,scene);
+mv.loadObj('res/sphere.obj',0.1,scene);
 
 
 

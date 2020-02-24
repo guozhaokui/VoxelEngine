@@ -134,7 +134,7 @@ export class VoxMesh{
         */
         var zdt = zline[z];
         if(!zdt){
-            zdt = zline[z]=[0,0,0];
+            zdt = zline[z]=[-10,-10,-10];
         }
         zdt[dir]=d;
     }
@@ -173,129 +173,161 @@ export class VoxMesh{
     }
 
     outPos(){
-        var edge_table = VoxMesh.edge_table;
-        var edge_pos   = VoxMesh.edge_pos;
-        var cube_edges = VoxMesh.cube_edges;
         var xs = this.xsize;
         var ys = this.ysize;
         var dt = this.data;
-        var mask:int=0;
+        var NOD=-10;
+        //DEBUG
+        var dbg=false;
+        //DEBUG
+
         /** 顶点 */
         var  vert = [0.0, 0.0, 0.0];
-        var  grid = [];
         for(var y=0;y<ys-1; y++){
             for(var x=0; x<xs-1; x++){
+                //DEBUG
+                dbg = x==7&&y==5;
+                if(x==7&&y==5){
+                    //debugger;
+                }
+                //DEBUG
                 var id=x+y*xs;
                 var zline = dt[id];
                 var zlen = zline.length;
                 if(zlen){
                     for(var z=0; z<zlen; z++){
-                        var cgrid = zline[z];
-                        if(!cgrid) continue;    //TODO 以后不用下标了要改这里。下标的话会有很多空的
-                        grid[0]=cgrid;                        
+                        //DEBUG
+                        if(dbg && z==3){
+                            debugger;
+                        }
+                        //DEBUG
+                        // 当前格子的任意一条边有数据，就要计算
+                        var p1 = dt[x+1+xs*y];//TODO xs*y 优化
+                        var p2 = dt[x+xs*(y+1)];
+                        var p3 = dt[x+1+xs*(y+1)];
+
+                        var v0 = zline[z];
+                        var v1 = p1 && p1[z];
+                        var v2 = p2 && p2[z];
+                        var v3 = p3 && p3[z];
+                        var v4 = zline[z+1];
+                        var v5= p1 && p1[z+1];
+                        var v6= p2 && p2[z+1];
+
                         vert[0]=vert[1]=vert[2]=0;
-                        mask=0;
-                        // 0
-                        var inner = cgrid[0]<0||cgrid[1]<0||cgrid[2]<0;
-                        if(inner) mask=1;  //只要检查一个方向就行，不可能x<0 y>0 (需要check)
 
-                        // 再找其他7个点. 001表示x
-                        // 1
-                        var p001 = dt[x+1+xs*y];//TODO xs*y 优化
-                        var v001 = p001 && p001[z];
-                        if(v001){
-                            grid[1]=v001;
-                            if(v001[0]<0||v001[1]<0||v001[2]<0) mask|=1<<1;
-                        }
-
-                        // 2
-                        var p010= dt[x+xs*(y+1)];
-                        var v010 = p010 && p010[z];
-                        if(v010){
-                            grid[2]=v010;
-                            if(v010[0]<0||v010[1]<0||v010[2]<0) mask|=1<<2;
-                        }
-
-                        // 3
-                        var p011= dt[x+1+xs*(y+1)];
-                        var v011 = p011 && p011[z];
-                        if(v011){
-                            grid[3]=v011;
-                            if(v011[0]<0||v011[1]<0||v011[2]<0) mask|=1<<3;
-                        }
-
-                        // 4
-                        var v100= zline[z+1];
-                        if(v100){
-                            grid[4]=v100;
-                            if(v100[0]<0||v100[1]<0||v100[2]<0) mask|=1<<4;
-                        }
-
-                        // 5
-                        var v101= p001 && p001[z+1];
-                        if(v101){
-                            grid[5]=v101;
-                            if(v101[0]<0||v101[1]<0||v101[2]<0) mask|=1<<5;
-                        }
-                        // 6
-                        var v110= p010 && p010[z+1];
-                        if(v110){
-                            grid[6]=v110;
-                            if(v110[0]<0||v110[1]<0||v110[2]<0) mask|=1<<6;
-                        }
-
-                        // 7
-                        var v111= p011 && p011[z+1];
-                        if(v111){
-                            grid[7]=v111;
-                            if(v111[0]<0||v111[1]<0||v111[2]<0) mask|=1<<7;
-                        }
-
-                        // 检查各个方向是否有变化来判断
-                        if(mask===0 || mask===0xff){
-                            //debugger;
-                            continue;
-                        }
-                        /** 哪条边有交点 */
-                        var edge_mask = edge_table[mask];
+                        var inner =-1;  // 不知道
+                        // 下面统计12条边的切割情况
                         /** 有交点的边的个数 */
-                        let  e_count = 0;
-
-                        for (var i = 0; i < 12; ++i) {
-                            if (!(edge_mask & (1 << i))) {
-                                // 如果当前边没有交点
-                                continue;
+                        var  e_count = 0;
+                        if(v0){
+                            if(v0[0]!=NOD){
+                                vert[0]+=Math.abs(v0[0]);
+                                if(inner==-1) inner = v0[0]<0?1:0;
+                                e_count++;
                             }
-                            ++e_count;
-                            // 如果有的话，计算位置
-                            var v0 = cube_edges[i*2];
-                            // 根据边起点位置来确定基本偏移
-                            if(v0&1){
-                                // 起点在x方向
-                                vert[0]+=1;
+                            if(v0[1]!=NOD){
+                                vert[1]+=Math.abs(v0[1]);
+                                if(inner==-1) inner = v0[1]<0?1:0;
+                                e_count++;
                             }
-                            if(v0&2){
-                                // 起点在y方向
-                                vert[1]+=1;
+                            if(v0[2]!=NOD){
+                                vert[2]+=Math.abs(v0[2]);
+                                if(inner==-1) inner = v0[2]<0?1:0;
+                                e_count++;
                             }
-                            if(v0&4){
-                                // 起点在z方向
-                                vert[2]+=1;
-                            }
-                            
-                            var axid = edge_pos[i];
-                            var dist = grid[v0][axid];
-                            vert[axid]+= dist>0?dist:-dist;
                         }
+
+                        if(v1){
+                            if(v1[1]!=NOD){
+                                vert[0]+=1;
+                                vert[1]+=Math.abs(v1[1]);
+                                if(inner==-1) inner = v1[1]<0?1:0;
+                                e_count++;
+                            }
+
+                            if(v1[2]!=NOD){
+                                vert[0]+=1;
+                                vert[2]+=Math.abs(v1[2]);
+                                if(inner==-1) inner=v1[2]<0?1:0;
+                                e_count++;
+                            }
+                        }
+
+                        if(v2){
+                            if(v2[0]!=NOD){
+                                vert[1]+=1;
+                                vert[0]+=Math.abs(v2[0]);
+                                if(inner==-1)inner=v2[0]<0?1:0;
+                                e_count++;
+                            }
+
+                            if(v2[2]!=NOD){
+                                vert[1]+=1;
+                                vert[2]+=Math.abs(v2[2]);
+                                if(inner==-1)inner=v2[2]<0?1:0;
+                                e_count++;
+                            }
+                        }
+
+                        if(v3){
+                            if(v3[2]!=NOD){
+                                vert[0]+=1;
+                                vert[1]+=1;
+                                vert[2]+=Math.abs(v3[2]);
+                                if(inner==-1)inner=v3[2]<0?1:0;
+                                e_count++;
+                            }
+                        }
+
+                        if(v4){
+                            if(v4[0]!=NOD){
+                                vert[2]+=1;
+                                vert[0]+=Math.abs(v4[0]);
+                                if(inner==-1)inner=v4[0]<0?1:0;
+                                e_count++;
+                            }
+                            if(v4[1]!=NOD){
+                                vert[2]+=1;
+                                vert[1]+=Math.abs(v4[1]);
+                                if(inner==-1)inner=v4[1]<0?1:0;
+                                e_count++;
+                            }
+                        }
+
+                        if(v5){
+                            if(v5[1]!=NOD){
+                                vert[0]+=1;
+                                vert[2]+=1;
+                                vert[1]+=Math.abs(v5[1]);
+                                if(inner==-1)inner=v5[1]<0?1:0;
+                                e_count++;
+                            }
+                        }
+                        if(v6){
+                            if(v6[0]!=NOD){
+                                vert[1]+=1; //y
+                                vert[2]+=1; //z
+                                vert[0]+=Math.abs(v6[0]);
+                                if(inner==-1)inner=v6[0]<0?1:0;
+                                e_count++;
+                            }
+                        }
+
                         // 计算平均值
                         if(e_count>0){
+                            //DEBUG
+                            if(dbg){
+                                console.log('xyz',x,y,z);
+                            }
+                            //DEBUG
                             var s = 1/e_count;
                             vert[0]*=s;
                             vert[1]*=s;
                             vert[2]*=s;
                             this.setVertex(x,y,z,vert,inner);
                         }else{
-                            debugger;
+                            //debugger;
                         }
                     }
                 }
@@ -303,7 +335,7 @@ export class VoxMesh{
         }
     }
 
-    setVertex(x:int,y:int,z:int, pos:number[],inner:boolean){
+    setVertex(x:int,y:int,z:int, pos:number[],inner:int){
         //DEBUG
         var cpos = new Vector3(x+pos[0],y+pos[1],z+pos[2]);
         dbgline.addLine(cpos, new Vector3(cpos.x+0.1,cpos.y,cpos.z),Color.WHITE,Color.WHITE);
@@ -317,7 +349,7 @@ export class VoxMesh{
         var intv = ((fx*0xff)<<24) +
                 ((fy*0xff)<<16)+
                 ((fz*0xff)<<8)+
-                (inner?1:0);
+                inner;
 
         this.posData[x+y*this.xsize][z]=intv;
     }    
