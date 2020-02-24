@@ -47,11 +47,11 @@ class VoxData{
 }
 
 class MultiDepthBuffer{
-    surface:number[][]=[];
-    dbgData:Uint8Array;
-    width:int=0;
-    height:int=0;
-    mainax:int=0;
+    private surface:number[][]=[];
+    private dbgData:Uint8Array;
+    private width:int=0;
+    private height:int=0;
+    private mainax:int=0;
     static coord=[0,0,0];
     /**
      * 
@@ -72,17 +72,18 @@ class MultiDepthBuffer{
         //DEBUG
         this.dbgData = new Uint8Array(this.surface.length)
     }
-    verifyxy(x:int,y:int){
+
+    private verifyxy(x:int,y:int){
         if(x<0||y<0||x>=this.width||y>=this.height){
             throw 'xy error'
         }
     }
 
     //DEBUG
-    getdbgFlag(x:int,y:int){
+    private getdbgFlag(x:int,y:int){
         return this.dbgData[x+y*this.width];
     }
-    setdbgFlag(x:int,y:int){
+    private setdbgFlag(x:int,y:int){
         this.dbgData[x+y*this.width]=1;
     }
     //DEBUG
@@ -129,10 +130,6 @@ class MultiDepthBuffer{
         //DEBUG        
     }
 
-    filldata(st:int,ed:int,data:VoxData){
-
-    }
-
     private transXYZ(x:int,y:int,z:int){
         var ret=MultiDepthBuffer.coord;
         var ax=this.mainax;
@@ -152,13 +149,13 @@ class MultiDepthBuffer{
         var stv=0;
         var coord=MultiDepthBuffer.coord;
         var ax=this.mainax;
-
+        var surface = this.surface;
         for(var y=0; y<ys; y++){
             coord[(ax+2)%3]=y;
             for(var x=0; x<xs; x++){
                 coord[(ax+1)%3]=x;
                 state=0;
-                var one = this.surface[cidx++];
+                var one = surface[cidx++];
                 var dtnum = one.length;
                 for(var i=0; i<dtnum; i++){
                     var z = one[i];
@@ -202,32 +199,20 @@ class MultiDepthBuffer{
         }
         //console.log('datanum=',datanum);
     }
-
-    isInner(x:int,y:int, z:int){
-
-    }
-}
-
-class VoxShell{
-    // 类似上面的结构，但是把三个方向的合并到一起
-    // 
 }
 
 export class VoxelizeMesh{
-    /** 所有面的法线 */
-    faceNormals:Vector4[]=[];   //法线和d
-    faceNormal:number[]=[0,0,0,0];  // 法线和d
-    xySurface = new MultiDepthBuffer(2); //每个元素保存的是一个{faceid,dist}
-    yzSurface = new MultiDepthBuffer(0)
-    xzSurface = new MultiDepthBuffer(1);
-    scale=1;
-    meshMin:number[]=[0,0,0];
-    meshMax:number[]=[0,0,0];
-    gridmin=[0,0,0];
-    gridmax=[0,0,0];
+    private faceNormal:number[]=[0,0,0,0];  // 法线和d
+    private xySurface = new MultiDepthBuffer(2); //每个元素保存的是一个{faceid,dist}
+    private yzSurface = new MultiDepthBuffer(0)
+    private xzSurface = new MultiDepthBuffer(1);
+    private meshMin:number[]=[0,0,0];
+    private meshMax:number[]=[0,0,0];
+    private gridmin=[0,0,0];
+    private gridmax=[0,0,0];
 
-    posBuffer:Float32Array;
-    _dbgline:PixelLineSprite3D;
+    private posBuffer:Float32Array;
+    private _dbgline:PixelLineSprite3D;
     set dbgline(d:PixelLineSprite3D){
         this._dbgline=d;
         dbgline=d;
@@ -244,7 +229,7 @@ export class VoxelizeMesh{
     private static nV2=[0,0,0];
 
     toVoxel(vertices:number[], indices:number[], vertexSize:int, gridsize:number, data:any, flipNormal:boolean){
-        var scale = this.scale=1/gridsize;
+        var scale = 1/gridsize;
         if(vertexSize<=0){
             throw 'err';
         }
@@ -256,9 +241,9 @@ export class VoxelizeMesh{
 		let min = this.meshMin;
 		let max = this.meshMax;
         for (var vi = 0; vi < vertnum; vi++) {
-			let cx = vertices[vi * 3]*scale;		//x
-			let cy = vertices[vi * 3 + 1]*scale;	//y;
-			let cz = vertices[vi * 3 + 2]*scale;	//z
+			let cx = vertices[vi * vertexSize]*scale;		//x
+			let cy = vertices[vi * vertexSize + 1]*scale;	//y;
+			let cz = vertices[vi * vertexSize + 2]*scale;	//z
 			if(vi==0){
 				min[0]=max[0]=cx;
 				min[1]=max[1]=cy;
@@ -330,10 +315,6 @@ export class VoxelizeMesh{
 		}
     }    
 
-    private toD(){
-
-    }
-    
     private fill(vertices:Float32Array, indices:number[], flipNormal:boolean,data:VoxMesh){
         var faceNum = indices.length / 3;
         var fidSt = 0;
@@ -393,7 +374,6 @@ export class VoxelizeMesh{
             this.triFillBuffer(tri,norm,planeD);
         }
 
-        debugger;
         // 操作实际数据
         this.xySurface.cleanBuffer(data);
         this.yzSurface.cleanBuffer(data);
@@ -401,140 +381,6 @@ export class VoxelizeMesh{
 
         data.outPos();
 
-    }
-
-    fill_2d(axisID:int,v0:number[],v1:number[],v2:number[]): void {
-		let nv0 = VoxelizeMesh.nV0;
-		let nv1 = VoxelizeMesh.nV1;
-        let nv2 = VoxelizeMesh.nV2;
-        nv0[0]=v0[0]|0;nv0[1]=v0[1]|0;nv0[2]=v0[2]|0;
-        nv1[0]=v1[0]|0;nv1[1]=v1[1]|0;nv1[2]=v1[2]|0;
-        nv2[0]=v2[0]|0;nv2[1]=v2[1]|0;nv2[2]=v2[2]|0;
-
-		// 三个点按照2d的y轴排序，下面相当于是展开的冒泡排序,p0的y最小
-		let xid = (axisID+1)%3;
-		let yid = (axisID+2)%3;
-		var temp;
-		var temp1;
-        if (nv0[yid] > nv1[yid]) {
-			temp = nv1; nv1 = nv0; nv0 = temp;
-			temp1 = v1; v1=v0; v0=temp1;
-        }
-
-        if (nv1[yid] > nv2[yid]) {
-            temp = nv1; nv1 = nv2; nv2 = temp;
-            temp1 = v1; v1 = v2; v2 = temp1;
-        }
-
-        if (nv0[yid] > nv1[yid]) {
-            temp = nv1; nv1 = nv0; nv0 = temp;
-            temp1 = v1; v1 = v0; v0 = temp1;
-        }
-
-        var y: int = 0;
-        var turnDir: number = (nv1[xid] - nv0[xid]) * (nv2[yid] - nv0[yid]) - (nv2[xid] - nv0[xid]) * (nv1[yid] - nv0[yid]);
-		if (turnDir >= 0) {// >0 则v0-v2在v0-v1的右边，即向右拐。 在一条线上也走这个流程
-            // v0
-            // -
-            // -- 
-            // - -
-            // -  -
-            // -   - v1
-            // -  -
-            // - -
-            // -
-            // v2
-            for (y = nv0[yid]; y <= nv2[yid]; y++) {
-				// y分成两部分处理
-                if (y < nv1[yid]) {
-					// 上半部分。 v0-v2 扫描到 v0-v1
-                    this.processScanLine(y, nv0, nv2, nv0, nv1,axisID);
-                }
-                else {
-                    this.processScanLine(y, nv0, nv2, nv1, nv2,axisID);
-                }
-            }
-        } else {	// 否则，左拐
-            //       v0
-            //        -
-            //       -- 
-            //      - -
-            //     -  -
-            // v1 -   - 
-            //     -  -
-            //      - -
-            //        -
-            //       v2
-            for (y = nv0[yid]; y <= nv2[yid]; y++) {
-                if (y < nv1[yid]) {
-                    this.processScanLine(y, nv0, nv1, nv0, nv2,axisID);
-                }
-                else {
-                    this.processScanLine(y, nv1, nv2, nv0, nv2,axisID);
-                }
-            }
-        }
-    }
-
-    private interpolate(min: number, max: number, gradient: number) {
-        return min + (max - min) * gradient;
-    }
-
-    // y是当前y，pa,pb 是左起始线，pc,pd 是右结束线
-    private processScanLine(y: int,pa:int[], pb:int[], pc:int[], pd:int[], axisID:int): void {
-		let xid = (axisID+1)%3;
-		let yid = (axisID+2)%3;
-        // 水平线的处理，需要考虑谁在左边,
-        // papb 可能的水平
-        //   pb-----pa
-        //   pa
-        //   \
-        //    \
-        //    pb
-        //  或者
-        //    /pa
-        //   /
-        //  pb pa-----pb
-        // pcpd 可能的水平
-        //    pc----pd
-        //        pc
-        //       /
-        //      /
-        //      pd
-        //  或者
-        //     pc
-        //      \
-        //       \pd
-		//   pd---pc
-		// gradient1 = (y-pa.y) /(pb.y-pa.y) 然后根据这个计算对应的 sx,sz 
-		//let fy = (y+0.5)*w;
-        var gradient1 = pa[yid] != pb[yid] ? (y - pa[yid]) / (pb[yid] - pa[yid]) : (pa[xid] > pb[xid] ? 1 : 0);	// y的位置，0 在pa， 1在pb
-        var gradient2 = pc[yid] != pd[yid] ? (y - pc[yid]) / (pd[yid] - pc[yid]) : (pc[xid] > pd[xid] ? 0 : 1); // pc-pd
-
-        var sx: int = Math.round(this.interpolate(pa[xid], pb[xid], gradient1))-1;	// 扩大一下，防止投影面变化的地方漏了
-        var ex: int = Math.round(this.interpolate(pc[xid], pd[xid], gradient2))+1;
-        //var su: number = this.interpolate(fpa[3], fpb[3], gradient1);
-        //var eu: number = this.interpolate(fpc[3], fpd[3], gradient2);
-        //var sv: number = this.interpolate(fpa[4], fpb[4], gradient1);
-        //var ev: number = this.interpolate(fpc[4], fpd[4], gradient2);
-
-		var x: int = 0;
-		// x每一步走多少
-        //var stepx: number = ex != sx ? 1 / (ex - sx) : 0;
-        //var kx: number = 0;
-        /*
-		let min = this.nmin;
-		let max = this.nmax;
-		let grid = this.curGrid;
-		grid[axisID]=0;
-		grid[yid]=y;
-		let norm = this.normArr;
-		let planeD = this.planeD;
-		for (x = sx; x <= ex; x++) {
-			grid[xid]=x;
-			//this.hitRange(min,max,grid,norm, planeD, axisID);
-        }
-        */
     }
 
     // TODO 1. 可以控制方向 2. 可以控制误差
@@ -546,13 +392,6 @@ export class VoxelizeMesh{
             // 假设扩展d。则叉乘的值与d的关系与边长成正比
     } 
     
-    private addToSurface(){
-
-    }
-
-    private cleanSurface(){
-
-    }
     private triFillBuffer(tri:number[],plane:Vector3, d:number):void{
         // dbg 确认顺序
         var minx = tri[0];
@@ -670,46 +509,4 @@ export class VoxelizeMesh{
     (cx-px)*(ay-py)-(ay-py)-(ax-px)*(cy-py)+(cy-py)
      = A + (cy-py)-(ay-py) = A+cy-py-ay+py = A+cy-ay
     */
-    // 确定直线与三角形的交点的z值
-    private triHitXY(x:number,y:number, tri:number[],plane:Vector4,out:number[] ):boolean{
-        // 计算与平面的交点
-        if(plane.z<1e-6 && plane.z>-1e-6)
-            return false;
-        // 相当于确定2d的点是否在2d三角形内
-        if(this.pointInTriangle(tri[0],tri[1],tri[3],tri[4],tri[6],tri[7],x,y)){
-            // 计算交点
-            let z = (plane.w -( x*plane.x+y*plane.y))/plane.z;
-            out[0]=z;
-            return true;
-        }
-        return false;
-    }
-
-    private triHitYZ(y:number,z:number, tri:number[],plane:Vector4,out:number[] ):boolean{
-        // 计算与平面的交点
-        if(plane.x<1e-6 && plane.x>-1e-6)
-            return false;
-        // 相当于确定2d的点是否在2d三角形内
-        if(this.pointInTriangle(tri[1],tri[2],tri[4],tri[5],tri[7],tri[8],y,z)){
-            // 计算交点
-            let x = (plane.w -( z*plane.z+y*plane.y))/plane.x;
-            out[0]=x;
-            return true;
-        }
-        return false;
-    }
-    
-    private triHitXZ(x:number,z:number, tri:number[],plane:Vector4,out:number[] ):boolean{
-        // 计算与平面的交点
-        if(plane.y<1e-6 && plane.y>-1e-6)
-            return false;
-        // 相当于确定2d的点是否在2d三角形内
-        if(this.pointInTriangle(tri[0],tri[2],tri[3],tri[5],tri[6],tri[8],x,z)){
-            // 计算交点
-            let y = (plane.w -( x*plane.x+z*plane.z))/plane.y;
-            out[0]=y;
-            return true;
-        }
-        return false;
-    }    
 }

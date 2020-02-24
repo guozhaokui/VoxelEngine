@@ -24,17 +24,17 @@ import { Color } from 'laya/d3/math/Color';
  var dbgline:PixelLineSprite3D;
 
 export class VoxMesh{
-    xsize=0;
-    ysize=0;
-    zsize=0;
+    private xsize=0;
+    private ysize=0;
+    private zsize=0;
     /** 投影到xy的数据  */
     data:number[/* x,y */][/* 层 */][/* x,y,z距离 */]=[];
-    posData:number[/*x,y*/][/*pos,inner*/]=[];
+    private posData:number[/*x,y*/][/*pos,inner*/]=[];
     /** 保存两层的边相交数据，每个保存的是[x,y,z] */
-    static rtBuff:number[][]=[[],[]];
+    private static rtBuff:number[][]=[[],[]];
 
     /** tomesh的时候用来局部展开记录顶点索引的。用ArrayBuffer是为了操作方便 */
-    static toMeshRtBuf:ArrayBuffer|null;// number[/*层*/][/*xy 对应的顶点索引*/]=[[/*第0层*/],[/*第一层*/]];
+    //private static toMeshRtBuf:ArrayBuffer|null;// number[/*层*/][/*xy 对应的顶点索引*/]=[[/*第0层*/],[/*第一层*/]];
     /** 实际操作上面的buffer */
     //static toMeshRtU32Buff:Uint32Array[];   
 
@@ -332,7 +332,7 @@ export class VoxMesh{
 
         var posData = this.posData;
         /** 从第0层开始，这一层只可能出现上下的变化，因此取的index都是本层的，是没有问题的 */
-        var posRTBuff = VoxMesh.toMeshRtBuf = new ArrayBuffer(xs*ys*4*2);  // 由于索引的局部性，其实不需要这么大的buffer
+        var posRTBuff = /*VoxMesh.toMeshRtBuf =*/ new ArrayBuffer(xs*ys*4*2);  // 由于索引的局部性，其实不需要这么大的buffer
         var posRTU32Buff = new Uint32Array(posRTBuff);
         var posRTU32Buffs:Uint32Array[] = [ new Uint32Array(posRTBuff,0,xs*ys), new Uint32Array(posRTBuff,xs*ys*4,xs*ys) ];
 
@@ -413,7 +413,7 @@ export class VoxMesh{
             }
         }
 
-        VoxMesh.toMeshRtBuf=null;
+        //VoxMesh.toMeshRtBuf=null;
 
         return { vertices: vertices, faces: faces };
     }    
