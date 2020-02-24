@@ -9,6 +9,8 @@ function verifyBE(v:number,s:number){
         throw ('param error');
 }
 
+var dbgline:PixelLineSprite3D;
+
 class VoxData{
     data:Float32Array;  // 为了能方便的实现原型，先用float
     xsize=0;
@@ -225,7 +227,14 @@ export class VoxelizeMesh{
     gridmax=[0,0,0];
 
     posBuffer:Float32Array;
-    dbgline:PixelLineSprite3D;
+    _dbgline:PixelLineSprite3D;
+    set dbgline(d:PixelLineSprite3D){
+        this._dbgline=d;
+        dbgline=d;
+    }
+    get dbgline(){
+        return this._dbgline;
+    }
 
     private static tmpNorm = new Vector3();
     private static tmpVec30=new Vector3();

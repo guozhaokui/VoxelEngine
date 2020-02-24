@@ -174,10 +174,9 @@ export class VoxMesh{
 
     outPos(){
         var edge_table = VoxMesh.edge_table;
-        var edge_pos = VoxMesh.edge_pos;
+        var edge_pos   = VoxMesh.edge_pos;
         var cube_edges = VoxMesh.cube_edges;
-        var id=0;
-        var xs = this.zsize;
+        var xs = this.xsize;
         var ys = this.ysize;
         var dt = this.data;
         var mask:int=0;
@@ -186,7 +185,7 @@ export class VoxMesh{
         var  grid = [];
         for(var y=0;y<ys-1; y++){
             for(var x=0; x<xs-1; x++){
-                id=x+y*xs;
+                var id=x+y*xs;
                 var zline = dt[id];
                 var zlen = zline.length;
                 if(zlen){
@@ -254,7 +253,8 @@ export class VoxMesh{
 
                         // 检查各个方向是否有变化来判断
                         if(mask===0 || mask===0xff){
-                            debugger;
+                            //debugger;
+                            continue;
                         }
                         /** 哪条边有交点 */
                         var edge_mask = edge_table[mask];
