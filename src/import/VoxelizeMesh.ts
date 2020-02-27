@@ -102,18 +102,14 @@ class MultiDepthBuffer{
         for(var i=0; i<num; i++){
             let cv = one[i];
             if(cv==undefined) continue;
-            let absv = cv<0?-cv:cv;
-            // 两个非常靠近的左右认为是重叠的，互相抵消，一次只能抵消一个
-            var d = absv-v;
-            if(Math.abs(d)<1e-4){
-                if(Math.sign(dist)!=Math.sign(cv))// 反向的抵消
-                    one.splice(i,1);
-                else{
-                    //同向的留一个。 这样有个问题，就是对齐的两个大小不同的盒子
-                    return;
-                }
+
+            var absv = cv<0?-cv:cv;
+            // 同一个格子内的左右可以抵消，一次只能抵消一个
+            if ((cv | 0) === -(dist | 0)) {
+                one.splice(i, 1);
                 return;
             }
+            var d = absv-v;
             if(d>0){
                 // 插入
                 one.splice(i,0,dist);
@@ -169,29 +165,29 @@ class MultiDepthBuffer{
                         state--;
                         if(state==0){
                             var gridstz = stv|0;
-                            // 起点应该是正的
-                            var gridv = stv-gridstz;
-                            //转到byte
-                            //gridv = (gridv*255)|0-127;
-                            // 起点
-                            coord[ax]=gridstz;
-                            data.set(coord[0],coord[1],coord[2],ax,gridv);
-                            //coord[ax]=gridstz+1;
-                            //data.set(coord[0],coord[1],coord[2],ax,gridv-1);//data.set(x,y,gridstz+1,gridv-1);
-                            // 填充
-                            /*
-                            for(var fz=gridstz+2;fz<gridz; fz++){
-                                coord[ax]=fz;
-                                data.set(coord[0],coord[1],coord[2],-127);//data.set(x,y,fz,-127);            
+                            if(gridstz!=gridz){// 在同一个格子内的不管
+                                // 起点应该是正的
+                                var gridv = stv-gridstz;
+                                // 起点
+                                coord[ax]=gridstz;
+                                data.set(coord[0],coord[1],coord[2],ax,gridv,false);
+                                //coord[ax]=gridstz+1;
+                                //data.set(coord[0],coord[1],coord[2],ax,gridv-1);//data.set(x,y,gridstz+1,gridv-1);
+                                // 填充
+                                /*
+                                for(var fz=gridstz+2;fz<gridz; fz++){
+                                    coord[ax]=fz;
+                                    data.set(coord[0],coord[1],coord[2],-127);//data.set(x,y,fz,-127);            
+                                }
+                                */
+                                // 终点. //0到-1分别对应 127~-127
+                                // 终点是负的
+                                var endv = gridz-absv;// (((absv-gridz)*255)|0)-127;
+                                coord[ax]=gridz;
+                                data.set(coord[0],coord[1],coord[2],ax,endv,true);
+                                //coord[ax]=gridz+1;
+                                //data.set(coord[0],coord[1],coord[2],ax,endv+1);  // 至少要提供两个数据
                             }
-                            */
-                            // 终点. //0到-1分别对应 127~-127
-                            // 终点是负的
-                            var endv = gridz-absv;// (((absv-gridz)*255)|0)-127;
-                            coord[ax]=gridz;
-                            data.set(coord[0],coord[1],coord[2],ax,endv);
-                            //coord[ax]=gridz+1;
-                            //data.set(coord[0],coord[1],coord[2],ax,endv+1);  // 至少要提供两个数据
                         }
                     }
                     //data.set(x,y,gridz,-127);

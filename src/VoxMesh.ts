@@ -122,8 +122,9 @@ export class VoxMesh{
      * @param z 
      * @param dir 0 x轴，1 y轴 2 z轴
      * @param d  相对值，-1到1之间
+     * @param inner 外部提供，更准确，也能区分-0
      */
-    set(x:int,y:int,z:int,dir:int,d:number){
+    set(x:int,y:int,z:int,dir:int,d:number, inner:boolean){
         var zline = this.data[x+this.xsize*y];
         /* 以后再做，比较效率和内存
         var dl = zline.length;
@@ -134,7 +135,7 @@ export class VoxMesh{
         */
         var zdt = zline[z];
         if(!zdt){
-            zdt = zline[z]=[-10,-10,-10];
+            zdt = zline[z]=[-10,-10,-10,inner?1:0];
         }
         zdt[dir]=d;
     }
@@ -194,6 +195,9 @@ export class VoxMesh{
                 var id=x+y*xs;
                 var zline = dt[id];
                 var zlen = zline.length;
+                // 必须要考虑旁边的影响，比如只有7点有变化，则这个点也要设置shape
+                zlen = Math.max(zlen, dt[id + 1].length, dt[id + xs].length);                
+                var scanInner = false;
                 if(zlen){
                     for(var z=0; z<zlen; z++){
                         //DEBUG
@@ -214,42 +218,54 @@ export class VoxMesh{
                         var v5= p1 && p1[z+1];
                         var v6= p2 && p2[z+1];
 
+                        if (v0) {
+                            if (!scanInner && v0[2]!=NOD && v0[3] == 0) {// 必须是z有数据
+                                scanInner = true;
+                            }
+                            if (scanInner &&  v0[2]!=NOD && v0[3] == 1) {
+                                scanInner = false;
+                            }
+                        }else {
+                            if (scanInner) {
+                                // 填充内部
+                                //cubedata.set1x1x1(x, y, z, color);
+                            }
+                        }
+
                         vert[0]=vert[1]=vert[2]=0;
 
-                        var inner =-1;  // 不知道
+                        var inner =0;  // inner只能根据v0来判断，不必考虑其他点，否则会得到错误（矛盾）的结论
                         // 下面统计12条边的切割情况
                         /** 有交点的边的个数 */
                         var  e_count = 0;
                         if(v0){
                             if(v0[0]!=NOD){
                                 vert[0]+=Math.abs(v0[0]);
-                                if(inner==-1) inner = v0[0]<0?1:0;
                                 e_count++;
                             }
                             if(v0[1]!=NOD){
                                 vert[1]+=Math.abs(v0[1]);
-                                if(inner==-1) inner = v0[1]<0?1:0;
                                 e_count++;
                             }
                             if(v0[2]!=NOD){
                                 vert[2]+=Math.abs(v0[2]);
-                                if(inner==-1) inner = v0[2]<0?1:0;
                                 e_count++;
                             }
+                            inner = v0[3];
+                        }else{
+                            inner = scanInner?1:0;
                         }
 
                         if(v1){
                             if(v1[1]!=NOD){
                                 vert[0]+=1;
                                 vert[1]+=Math.abs(v1[1]);
-                                if(inner==-1) inner = v1[1]<0?1:0;
                                 e_count++;
                             }
 
                             if(v1[2]!=NOD){
                                 vert[0]+=1;
                                 vert[2]+=Math.abs(v1[2]);
-                                if(inner==-1) inner=v1[2]<0?1:0;
                                 e_count++;
                             }
                         }
@@ -258,14 +274,12 @@ export class VoxMesh{
                             if(v2[0]!=NOD){
                                 vert[1]+=1;
                                 vert[0]+=Math.abs(v2[0]);
-                                if(inner==-1)inner=v2[0]<0?1:0;
                                 e_count++;
                             }
 
                             if(v2[2]!=NOD){
                                 vert[1]+=1;
                                 vert[2]+=Math.abs(v2[2]);
-                                if(inner==-1)inner=v2[2]<0?1:0;
                                 e_count++;
                             }
                         }
@@ -275,7 +289,6 @@ export class VoxMesh{
                                 vert[0]+=1;
                                 vert[1]+=1;
                                 vert[2]+=Math.abs(v3[2]);
-                                if(inner==-1)inner=v3[2]<0?1:0;
                                 e_count++;
                             }
                         }
@@ -284,13 +297,11 @@ export class VoxMesh{
                             if(v4[0]!=NOD){
                                 vert[2]+=1;
                                 vert[0]+=Math.abs(v4[0]);
-                                if(inner==-1)inner=v4[0]<0?1:0;
                                 e_count++;
                             }
                             if(v4[1]!=NOD){
                                 vert[2]+=1;
                                 vert[1]+=Math.abs(v4[1]);
-                                if(inner==-1)inner=v4[1]<0?1:0;
                                 e_count++;
                             }
                         }
@@ -300,7 +311,6 @@ export class VoxMesh{
                                 vert[0]+=1;
                                 vert[2]+=1;
                                 vert[1]+=Math.abs(v5[1]);
-                                if(inner==-1)inner=v5[1]<0?1:0;
                                 e_count++;
                             }
                         }
@@ -309,7 +319,6 @@ export class VoxMesh{
                                 vert[1]+=1; //y
                                 vert[2]+=1; //z
                                 vert[0]+=Math.abs(v6[0]);
-                                if(inner==-1)inner=v6[0]<0?1:0;
                                 e_count++;
                             }
                         }
@@ -351,6 +360,10 @@ export class VoxMesh{
                 ((fz*0xff)<<8)+
                 inner;
 
+        if(intv==0){
+            // x,y,z的值都很小，又是外部，就会变成0,0是表示非shape的，所以要避免
+            intv=1<<8;
+        }    
         this.posData[x+y*this.xsize][z]=intv;
     }    
 
