@@ -148,6 +148,7 @@ export class VoxMesh{
      */
      get(x:int,y:int,z:int){
         var zline = this.data[x+this.xsize*y];
+        if(!zline)return null;
         var zdt = zline[z];
         if(!zdt){
             return null;
@@ -228,6 +229,7 @@ export class VoxMesh{
                         }else {
                             if (scanInner) {
                                 // 填充内部
+                                this.fill(x,y,z,-2)
                                 //cubedata.set1x1x1(x, y, z, color);
                             }
                         }
@@ -367,6 +369,10 @@ export class VoxMesh{
         this.posData[x+y*this.xsize][z]=intv;
     }    
 
+    fill(x:int,y:int,z:int,dist:number){
+
+    }
+
     toMesh(){
         var xs = this.xsize;
         var ys = this.ysize;
@@ -410,8 +416,27 @@ export class VoxMesh{
                     var px = x +((cz >>> 24) & 0xff) / 0xff;
                     var py = y +((cz >>> 16) & 0xff) / 0xff;
                     var pz = z +((cz >>> 8) & 0xff) / 0xff;
+                    var inner = cz&0xff;
+                    var pxdt = posData[p1+1];
+                    var pydt = posData[p1+xs];
+                    
+                    var px = pxdt? (pxdt[z]&0xff):0;
+                    var py = pydt? (pydt[z]&0xff):0;
+                    var pz = zline[z+1]&0xff;
+
+                    if(inner!=px){
+
+                    }
+                    if(inner!=py){
+
+                    }
+                    if(inner!=pz){
+                        
+                    }
+                    
                     // 确定8个点的inner
                     throw 'NI';
+
 
                     if(mask===0||mask===0xff){
                         debugger;
