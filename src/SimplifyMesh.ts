@@ -259,6 +259,7 @@ export class SimplifyMesh {
 							if (tcount){
 								// refs的 tstart开始的tcount个，移动到v0.tstart开始的地方
 								this.move(this.refs, v0.tstart, tstart, tcount);
+								this.resize(this.refs,tstart);
 							}
 						}
 						else
@@ -434,6 +435,7 @@ export class SimplifyMesh {
 			v.tcount = 0;
 		}
 		// Write References
+		refs=[];
 		for (var i: int = 0; i < triangles.length * 3; i++) {
 			refs[i] = new Ref();
 		}

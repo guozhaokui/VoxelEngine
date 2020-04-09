@@ -163,7 +163,7 @@ class MultiDepthBuffer{
                         state++;
                     }else{
                         state--;
-                        if(state==0){
+                        if(state==0 || i==dtnum-1){
                             var gridstz = stv|0;
                             if(gridstz!=gridz){// 在同一个格子内的不管
                                 // 起点应该是正的
