@@ -49,6 +49,7 @@ export class Mesh2Voxel{
 			dt.dims=[3,3,3]
 			*/
 			//TEST
+			//@ts-ignore
 			let mesh1 = isos.tomesh(dt.data,dt.dims);
 			
 			let meshes = polyToTriMesh(mesh1.vertices,mesh1.faces);
